@@ -322,7 +322,8 @@ static void stmmac_adjust_link(struct net_device *dev)
 
 	DBG(probe, DEBUG, "stmmac_adjust_link: called.  address %d link %d\n",
 	    phydev->addr, phydev->link);
-
+	//pr_err("stmmac_adjust_link: called.  address %d link %d\n", phydev->addr, phydev->link);
+	
 	spin_lock_irqsave(&priv->lock, flags);
 
 	if (phydev->link) {
@@ -342,11 +343,12 @@ static void stmmac_adjust_link(struct net_device *dev)
 		if (phydev->pause)
 			priv->hw->mac->flow_ctrl(priv->ioaddr, phydev->duplex,
 						 fc, pause_time);
-
-		if (phydev->speed != priv->speed) {
+        
+        if (phydev->speed != priv->speed) {
 			new_state = 1;
 			switch (phydev->speed) {
 			case 1000:
+				pr_err("phydev->speed %d\n", 1000);
 				if (likely(priv->plat->has_gmac))
 					ctrl &= ~priv->hw->link.port;
 					stmmac_hw_fix_mac_speed(priv);
@@ -356,8 +358,10 @@ static void stmmac_adjust_link(struct net_device *dev)
 				if (priv->plat->has_gmac) {
 					ctrl |= priv->hw->link.port;
 					if (phydev->speed == SPEED_100) {
+						pr_err("phydev->speed %d\n", 100);
 						ctrl |= priv->hw->link.speed;
 					} else {
+						pr_err("phydev->speed %d\n", 10);
 						ctrl &= ~(priv->hw->link.speed);
 					}
 				} else {
@@ -437,7 +441,8 @@ static int stmmac_init_phy(struct net_device *dev)
 	}
 
 #ifdef CONFIG_ARCH_SOCFPGA
-	if (priv->plat->has_gmac) {
+	if( (priv->plat->has_gmac) && (interface != PHY_INTERFACE_MODE_MII))     //if(priv->plat->has_gmac)
+    {
 		phydev->supported |= PHY_GBIT_FEATURES;
 		phydev->advertising |= PHY_GBIT_FEATURES;
 	}
@@ -980,7 +985,6 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
 static void stmmac_tx_timer(unsigned long data)
 {
 	struct stmmac_priv *priv = (struct stmmac_priv *)data;
-
 	stmmac_tx_clean(priv);
 }
 
@@ -1891,6 +1895,11 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
 	int ret = 0;
 	struct mac_device_info *mac;
 
+	//hardcode for testing 
+	//pr_err("Warning %s, Forcing MII instead of GMII \n",
+		       //STMMAC_RESOURCE_NAME);
+	//priv->plat->has_gmac = 0;
+	
 	/* Identify the MAC HW device */
 	if (priv->plat->has_gmac) {
 		priv->dev->priv_flags |= IFF_UNICAST_FLT;

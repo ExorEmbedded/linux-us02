@@ -154,39 +154,51 @@ static int stmmac_mdio_reset(struct mii_bus *bus)
 int stmmac_mdio_register(struct net_device *ndev)
 {
 	int err = 0;
-	struct mii_bus *new_bus;
+    static struct mii_bus *new_bus;
 	int *irqlist;
 	struct stmmac_priv *priv = netdev_priv(ndev);
 	struct stmmac_mdio_bus_data *mdio_bus_data = priv->plat->mdio_bus_data;
 	int addr, found;
+    
+    static int mdio_bus_count=0;
 
 	if (!mdio_bus_data)
 		return 0;
 
-	new_bus = mdiobus_alloc();
-	if (new_bus == NULL)
-		return -ENOMEM;
-
-	if (mdio_bus_data->irqs)
-		irqlist = mdio_bus_data->irqs;
+    if(new_bus != NULL)
+    {
+        pr_err("stmmac_mdio_register: Reusing the bus previously registered %s\n", new_bus->id);  
+    }
 	else
-		irqlist = priv->mii_irq;
-
-	new_bus->name = "stmmac";
-	new_bus->read = &stmmac_mdio_read;
-	new_bus->write = &stmmac_mdio_write;
-	new_bus->reset = &stmmac_mdio_reset;
-	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%s-%x",
-		new_bus->name, priv->plat->bus_id);
-	new_bus->priv = ndev;
-	new_bus->irq = irqlist;
-	new_bus->phy_mask = mdio_bus_data->phy_mask;
-	new_bus->parent = priv->device;
-	err = mdiobus_register(new_bus);
-	if (err != 0) {
-		pr_err("%s: Cannot register as MDIO bus\n", new_bus->name);
-		goto bus_register_fail;
-	}
+    {
+        new_bus = mdiobus_alloc();
+        if (new_bus == NULL)
+            return -ENOMEM;
+ 
+        if (mdio_bus_data->irqs)
+            irqlist = mdio_bus_data->irqs;
+        else
+            irqlist = priv->mii_irq;
+ 
+        new_bus->name = "stmmac";
+        new_bus->read = &stmmac_mdio_read;
+        new_bus->write = &stmmac_mdio_write;
+        new_bus->reset = &stmmac_mdio_reset;
+        snprintf(new_bus->id, MII_BUS_ID_SIZE, "%s-%x",
+            new_bus->name, priv->plat->bus_id);
+ 
+        new_bus->priv = ndev;
+        new_bus->irq = irqlist;
+        new_bus->phy_mask = mdio_bus_data->phy_mask;
+        new_bus->parent = priv->device;
+        err = mdiobus_register(new_bus);
+        if (err != 0) {
+            pr_err("%s: Cannot register as MDIO bus\n", new_bus->name);
+            goto bus_register_fail;
+        }
+    }
+        
+	priv->mii = new_bus; 
 
 	found = 0;
 	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {

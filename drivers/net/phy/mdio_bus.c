@@ -165,7 +165,8 @@ int mdiobus_register(struct mii_bus *bus)
 	for (i = 0; i < PHY_MAX_ADDR; i++) {
 		if ((bus->phy_mask & (1 << i)) == 0) {
 			struct phy_device *phydev;
-
+		
+			//pr_err("mii_bus %s MDIO scan address %d\n", bus->id, i);
 			phydev = mdiobus_scan(bus, i);
 			if (IS_ERR(phydev)) {
 				err = PTR_ERR(phydev);
@@ -233,15 +234,25 @@ struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr)
 {
 	struct phy_device *phydev;
 	int err;
-
+	int i;
 	phydev = get_phy_device(bus, addr, false);
-	if (IS_ERR(phydev) || phydev == NULL)
+	if (IS_ERR(phydev) )
 		return phydev;
 
+	if(phydev == NULL)
+	{
+		//pr_err("...No response\n");
+		return phydev;
+	}
 	err = phy_device_register(phydev);
 	if (err) {
 		phy_device_free(phydev);
 		return NULL;
+	}
+
+	//dump register
+	for (i = 0; i < 32; i++) {
+		printk(KERN_INFO " PR%d: 0x%x\n", i, phy_read(phydev, i));
 	}
 
 	return phydev;

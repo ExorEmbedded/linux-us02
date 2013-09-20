@@ -839,7 +839,10 @@ int genphy_read_status(struct phy_device *phydev)
 	if (err)
 		return err;
 
+	//pr_err("genphy_read_status called\n");
+	
 	if (AUTONEG_ENABLE == phydev->autoneg) {
+#if 0		
 		if (phydev->supported & (SUPPORTED_1000baseT_Half
 					| SUPPORTED_1000baseT_Full)) {
 			lpagb = phy_read(phydev, MII_STAT1000);
@@ -854,7 +857,7 @@ int genphy_read_status(struct phy_device *phydev)
 
 			lpagb &= adv << 2;
 		}
-
+#endif
 		lpa = phy_read(phydev, MII_LPA);
 
 		if (lpa < 0)
@@ -872,8 +875,9 @@ int genphy_read_status(struct phy_device *phydev)
 		phydev->pause = phydev->asym_pause = 0;
 
 		if (lpagb & (LPA_1000FULL | LPA_1000HALF)) {
+			//pr_err("Here 877n");
 			phydev->speed = SPEED_1000;
-
+			//phydev->speed = SPEED_100;
 			if (lpagb & LPA_1000FULL)
 				phydev->duplex = DUPLEX_FULL;
 		} else if (lpa & (LPA_100FULL | LPA_100HALF)) {
@@ -900,7 +904,9 @@ int genphy_read_status(struct phy_device *phydev)
 			phydev->duplex = DUPLEX_HALF;
 
 		if (bmcr & BMCR_SPEED1000)
+		{
 			phydev->speed = SPEED_1000;
+		}
 		else if (bmcr & BMCR_SPEED100)
 			phydev->speed = SPEED_100;
 		else

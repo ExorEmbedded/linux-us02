@@ -36,7 +36,7 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
 	struct device_node *np = pdev->dev.of_node;
 	u32 phyaddr;
 
-	if (!np)
+    if (!np)
 		return -ENODEV;
 
 	*mac = of_get_mac_address(np);
@@ -110,6 +110,7 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
 
 	plat_dat = pdev->dev.platform_data;
 
+	
 	if (pdev->dev.of_node) {
 		if (NULL == plat_dat) {
 			plat_dat = devm_kzalloc(&pdev->dev,

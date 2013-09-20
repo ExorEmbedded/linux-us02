@@ -447,16 +447,6 @@
 			interrupts = <0 135 4>;
 		};
 
-		gmac0: ethernet@ff700000 {
-			compatible = "altr,socfpga-stmmac", "snps,dwmac-3.70a", "snps,dwmac";
-			reg = <0xff700000 0x2000>;
-			interrupts = <0 115 4>;
-			interrupt-names = "macirq";
-			mac-address = [00 00 00 00 00 00];/* Filled in by U-Boot */
-			clocks = <&emac0_clk>;
-			clock-names = "stmmaceth";
-		};
-
 		gmac1: ethernet@ff702000 {
 			compatible = "altr,socfpga-stmmac", "snps,dwmac-3.70a", "snps,dwmac";
 			reg = <0xff702000 0x2000>;
@@ -466,6 +456,16 @@
 			clocks = <&emac1_clk>;
 			clock-names = "stmmaceth";
 		};
+
+        gmac0: ethernet@ff700000 {
+            compatible = "altr,socfpga-stmmac", "snps,dwmac-3.70a", "snps,dwmac";
+            reg = <0xff700000 0x2000>;
+            interrupts = <0 115 4>;
+            interrupt-names = "macirq";
+            mac-address = [00 00 00 00 00 00];/* Filled in by U-Boot */
+            clocks = <&emac0_clk>;
+            clock-names = "stmmaceth";
+        };
 
 		gpio0: gpio@ff708000 {
 			compatible = "snps,dw-gpio";

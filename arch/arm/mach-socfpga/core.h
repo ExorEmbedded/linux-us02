@@ -48,6 +48,9 @@
 
 #define SYSMGR_EMACGRP_CTRL_PHYSEL_MASK 0x00000003
 
+#define SYSMGR_FPGAINTGRP_CTRL_OFFSET 0x20
+#define SYSMGR_FPGAINTGRP_CTRL_MODULE_OFFSET 0x8
+
 extern void secondary_startup(void);
 extern void __iomem *socfpga_scu_base_addr;
 extern void __iomem *sys_manager_base_addr;

@@ -32,11 +32,13 @@
 		reg = <0x0 0x40000000>; /* 1 GB */
 	};
 
+    
 	aliases {
 		/* this allow the ethaddr uboot environmnet variable contents
-		 * to be added to the gmac1 device tree blob.
+		 * to be added to the gmac device tree blob.
 		 */
-		ethernet0 = &gmac1;
+       ethernet0 = &gmac0;
+       ethernet1 = &gmac1;
 	};
 
 	soc {
@@ -69,16 +71,12 @@
 			};
 		};
 
-		ethernet@ff700000 {
-			status = "disabled";
-		};
-
 		ethernet@ff702000 {
-			phy-mode = "rgmii";
-			phy-addr = <0xffffffff>; /* probe for phy addr */
+			phy-mode = "mii";
+			phy-addr = <0x01>; 
 		};
 
-		i2c1: i2c@ffc05000 {
+        i2c1: i2c@ffc05000 {
 			status = "disabled";
 		};
 

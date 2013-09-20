@@ -207,21 +207,30 @@ static int socfpga_phy_reset_mii(struct mii_bus *bus, int phyaddr)
 		return -EINVAL;
 	}
 
-	if (PHY_ID_KSZ9021RLRN != phydev->phy_id) {
-		pr_err("%s unexpected PHY ID %08x\n", __func__, phydev->phy_id);
-		return -EINVAL;
+	switch(phydev->phy_id)
+	{
+		case PHY_ID_KSZ9021RLRN: 
+			pr_info("%s writing extended registers to phyaddr %d\n",
+				__func__, phyaddr);
+				/* add 2 ns of RXC PAD Skew and 2.6 ns of TXC PAD Skew */
+			stmmac_emdio_write(bus, phyaddr,
+				MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SCEW, 0xa0d0);
+
+			/* set no PAD skew for data */
+			stmmac_emdio_write(bus, phyaddr,
+				MICREL_KSZ9021_RGMII_RX_DATA_PAD_SCEW, 0x0000);
+			break;
+		case 0xb8242824:
+			pr_info("Renesas Industrial Ethernet uPD60620 PHY %d attached\n", phyaddr);
+			pr_info("%s writing extended registers to phyaddr %d\n",
+				__func__, phyaddr);
+			//nothing to do so far
+			break;
+		default:
+			pr_err("%s unexpected PHY ID %08x\n", __func__, phydev->phy_id);
+			return -EINVAL;
+			
 	}
-
-	pr_info("%s writing extended registers to phyaddr %d\n",
-		__func__, phyaddr);
-
-	/* add 2 ns of RXC PAD Skew and 2.6 ns of TXC PAD Skew */
-	stmmac_emdio_write(bus, phyaddr,
-		MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SCEW, 0xa0d0);
-
-	/* set no PAD skew for data */
-	stmmac_emdio_write(bus, phyaddr,
-		MICREL_KSZ9021_RGMII_RX_DATA_PAD_SCEW, 0x0000);
 
 	bus->write = &stmmac_mdio_write_null;
 	return 0;
@@ -237,17 +246,31 @@ static int stmmac_plat_init(struct platform_device *pdev)
 
 	phymode = of_get_phy_mode(pdev->dev.of_node);
 
+	ctrl =  __raw_readl(sys_manager_base_addr +
+		SYSMGR_FPGAINTGRP_CTRL_OFFSET + SYSMGR_FPGAINTGRP_CTRL_MODULE_OFFSET);
+
+	__raw_writel(0xC | ctrl, (sys_manager_base_addr +
+		SYSMGR_FPGAINTGRP_CTRL_OFFSET + SYSMGR_FPGAINTGRP_CTRL_MODULE_OFFSET));
+
+	ctrl =  __raw_readl(sys_manager_base_addr +
+		SYSMGR_FPGAINTGRP_CTRL_OFFSET + SYSMGR_FPGAINTGRP_CTRL_MODULE_OFFSET);
+
+	pr_err("%s SYSMGR_FPGAINTGRP_CTRL_OFFSET 0x%X\n", __func__, ctrl);
+
 	switch (phymode) {
 	case PHY_INTERFACE_MODE_RGMII:
 		val = SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_RGMII;
+		pr_err("%s PHY MODE %s\n", __func__, "PHY_INTERFACE_MODE_RGMII");
 		break;
 	case PHY_INTERFACE_MODE_MII:
 	case PHY_INTERFACE_MODE_GMII:
 		val = SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_GMII_MII;
+		pr_err("%s PHY MODE %s\n", __func__, "PHY_INTERFACE_MODE_MII_GMII");
 		break;
 	default:
 		pr_err("%s bad phy mode %d", __func__, phymode);
-		return -EINVAL;
+		//return -EINVAL;
+		return 0;
 	}
 
 	if (&stmmacenet1_data == pdev->dev.platform_data)
@@ -266,8 +289,14 @@ static int stmmac_plat_init(struct platform_device *pdev)
 
 	ctrl |= (val << shift);
 
-	__raw_writel(ctrl, (sys_manager_base_addr +
+	__raw_writel(0, (sys_manager_base_addr +
 		SYSMGR_EMACGRP_CTRL_OFFSET));
+
+	ctrl =  __raw_readl(sys_manager_base_addr +
+		SYSMGR_EMACGRP_CTRL_OFFSET);
+
+	
+	pr_err("%s SYSMGR_EMACGRP_CTRL 0x%X\n", __func__, ctrl);
 
 	return 0;
 }
