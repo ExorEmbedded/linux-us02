@@ -207,5 +207,9 @@ CONFIG_LOGO_LINUX_CLUT224=y
 # CONFIG_FB_SSD1307 is not set
 # CONFIG_SOUND is not set
 
+#
+# Multitouch support
+#
+CONFIG_HID_MULTITOUCH=y
 
 
