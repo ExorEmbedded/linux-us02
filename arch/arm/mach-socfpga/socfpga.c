@@ -385,7 +385,7 @@ static void __init socfpga_cyclone5_init(void)
     /*
      *  Initialize the UltiEVC framebuffer driver
      */
-    ultievc_init_fb(31); //era 37
+    ultievc_init_fb(45); //era 31 TODO: Define a better way to pass the display id without needing to rebuild the kernel
 }
 
 static const char *altera_dt_match[] = {
