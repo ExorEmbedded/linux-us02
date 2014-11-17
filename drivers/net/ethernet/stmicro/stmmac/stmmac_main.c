@@ -970,7 +970,7 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
 		mixed_burst = priv->plat->dma_cfg->mixed_burst;
 		burst_len = priv->plat->dma_cfg->burst_len;
 	}
-
+	printk("!!!! stmmac_init_dma_engine calling dma->init func: %pF at address: %p\n", priv->hw->dma->init, priv->hw->dma->init);
 	return priv->hw->dma->init(priv->ioaddr, pbl, fixed_burst, mixed_burst,
 				   burst_len, priv->dma_tx_phy,
 				   priv->dma_rx_phy);

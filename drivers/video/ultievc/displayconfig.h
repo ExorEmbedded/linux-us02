@@ -26,7 +26,7 @@
  * Add to this list any further display device description
  * NOTE: Please update the MAXNRDISPLAYS accordingly
  */
-#define MAXNRDISPLAYS 45
+#define MAXNRDISPLAYS 50
 static struct t_DisplayParams displayconfig[MAXNRDISPLAYS+1] = {
     /* 0: Dummy, not used*/
     {
@@ -1180,6 +1180,131 @@ static struct t_DisplayParams displayconfig[MAXNRDISPLAYS+1] = {
         .brightness_min = 20,
         .brightness_max = 100,
     },
+    /* 46: TIANMA TM050RDH03 800x480 */
+    {
+      .rezx      = 800, 
+      .rezy      = 480, 
+      .bpp       = 16,
+      
+      .pclk_freq = 27000, 
+      .pclk_inv  = 0,
+      
+      .hs_fp     = 40, 
+      .hs_bp     = 40, 
+      .hs_w      = 48, 
+      .hs_inv    = 1,
+      
+      .vs_fp     = 13, 
+      .vs_bp     = 30, 
+      .vs_w      = 3, 
+      .vs_inv    = 1,
+      
+      .blank_inv      = 0,
+      
+      .pwmfreq        = 10000,
+      .brightness_min = 1,
+      .brightness_max = 100,
+    },
+    /* 47: AUO G101EVN01.0 1280x800 */
+    {
+      .rezx      = 1280, 
+      .rezy      = 800, 
+      .bpp       = 16,
+      
+      .pclk_freq = 64000, 
+      .pclk_inv  = 0,
+      
+      .hs_fp     = 11, 
+      .hs_bp     = 110, 
+      .hs_w      = 50, 
+      .hs_inv    = 1,
+      
+      .vs_fp     = 2, 
+      .vs_bp     = 28, 
+      .vs_w      = 11, 
+      .vs_inv    = 1,
+      
+      .blank_inv      = 0,
+      
+      .pwmfreq        = 4000,
+      .brightness_min = 5,
+      .brightness_max = 100,
+    },    
+    /* 48: Evervision VGG804806 for eTOP607 800x480 */
+    {
+      .rezx      = 800, 
+      .rezy      = 480, 
+      .bpp       = 16,
+      
+      .pclk_freq = 30000, 
+      .pclk_inv  = 0,
+      
+      .hs_fp     = 41, 
+      .hs_bp     = 35, 
+      .hs_w      = 129, 
+      .hs_inv    = 1,
+      
+      .vs_fp     = 12, 
+      .vs_bp     = 35, 
+      .vs_w      = 3, 
+      .vs_inv    = 1,
+      
+      .blank_inv      = 0,
+      
+      .pwmfreq        = 10000,
+      .brightness_min = 1,
+      .brightness_max = 70,
+    },   
+    /* 49: Rocktech RK070EH1401-T 800x480*/
+    {
+        .rezx      = 800, 
+        .rezy      = 480, 
+        .bpp       = 16,
+        
+        .pclk_freq = 30000, 
+        .pclk_inv  = 0,
+        
+        .hs_fp     = 205, 
+        .hs_bp     = 46, 
+        .hs_w      = 3, 
+        .hs_inv    = 1,
+        
+        .vs_fp     = 20, 
+        .vs_bp     = 23, 
+        .vs_w      = 2, 
+        .vs_inv    = 1,
+        
+        .blank_inv      = 0,
+        
+        .pwmfreq        = 10000,
+        .brightness_min = 1,
+        .brightness_max = 100,
+    },     
+    /* 50: Rocktech RK101EH1401-T 1024x600*/
+    {
+        .rezx      = 1024, 
+        .rezy      = 600, 
+        .bpp       = 16,
+        
+        .pclk_freq = 51000, 
+        .pclk_inv  = 1,
+        
+        .hs_fp     = 10, 
+        .hs_bp     = 320, 
+        .hs_w      = 10, 
+        .hs_inv    = 0,
+        
+        .vs_fp     = 10, 
+        .vs_bp     = 35, 
+        .vs_w      = 10, 
+        .vs_inv    = 1,
+        
+        .blank_inv      = 0,
+        
+        .pwmfreq        = 10000,
+        .brightness_min = 1,
+        .brightness_max = 100,
+    },     
 };
 
 #endif

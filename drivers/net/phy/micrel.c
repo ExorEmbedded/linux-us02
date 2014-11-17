@@ -247,6 +247,16 @@ static struct phy_driver ksphy_driver[] = {
 	.config_aneg	= ksz8873mll_config_aneg,
 	.read_status	= ksz8873mll_read_status,
 	.driver		= { .owner = THIS_MODULE, },
+}, {
+	.phy_id		= PHY_ID_KSZ886X,
+	.phy_id_mask	= 0x00fffff0,
+	.name		= "Micrel KSZ886X Switch",
+	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
+	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+	.config_init	= kszphy_config_init,
+	.config_aneg	= genphy_config_aneg,
+	.read_status	= genphy_read_status,
+	.driver		= { .owner = THIS_MODULE, },
 } };
 
 static int __init ksphy_init(void)
@@ -276,6 +286,7 @@ static struct mdio_device_id __maybe_unused micrel_tbl[] = {
 	{ PHY_ID_KSZ8041, 0x00fffff0 },
 	{ PHY_ID_KSZ8051, 0x00fffff0 },
 	{ PHY_ID_KSZ8873MLL, 0x00fffff0 },
+	{ PHY_ID_KSZ886X, 0x00fffff0 },
 	{ }
 };
 

@@ -44,6 +44,7 @@ static int dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb,
 		if (!(readl(ioaddr + DMA_BUS_MODE) & DMA_BUS_MODE_SFT_RESET))
 			break;
 		mdelay(10);
+		printk("DMA BUS MODE = 0x%x\n",readl(ioaddr + DMA_BUS_MODE));//!!!
 	}
 	if (limit < 0)
 		return -EBUSY;

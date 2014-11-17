@@ -227,8 +227,13 @@ static int socfpga_phy_reset_mii(struct mii_bus *bus, int phyaddr)
 			//nothing to do so far
 			break;
 		default:
-			pr_err("%s unexpected PHY ID %08x\n", __func__, phydev->phy_id);
-			return -EINVAL;
+			//!!!pr_err("%s unexpected PHY ID %08x\n", __func__, phydev->phy_id);
+			//!!!return -EINVAL;
+			pr_info("PHY %d attached\n", phyaddr);
+			pr_info("%s writing extended registers to phyaddr %d\n",
+				__func__, phyaddr);
+			//nothing to do so far
+			break;
 			
 	}
 
@@ -257,6 +262,7 @@ static int stmmac_plat_init(struct platform_device *pdev)
 
 	pr_err("%s SYSMGR_FPGAINTGRP_CTRL_OFFSET 0x%X\n", __func__, ctrl);
 
+	phymode = PHY_INTERFACE_MODE_MII; //!!!
 	switch (phymode) {
 	case PHY_INTERFACE_MODE_RGMII:
 		val = SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_RGMII;
@@ -385,7 +391,7 @@ static void __init socfpga_cyclone5_init(void)
     /*
      *  Initialize the UltiEVC framebuffer driver
      */
-    ultievc_init_fb(45); //era 31 TODO: Define a better way to pass the display id without needing to rebuild the kernel
+    ultievc_init_fb(47); //TODO: Define a better way to pass the display id without needing to rebuild the kernel
 }
 
 static const char *altera_dt_match[] = {
