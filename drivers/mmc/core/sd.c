@@ -97,6 +97,7 @@ static int mmc_decode_csd(struct mmc_card *card)
 	u32 *resp = card->raw_csd;
 
 	csd_struct = UNSTUFF_BITS(resp, 126, 2);
+	csd_struct = 1; // PATCH: Let us hardcode and force to SDHC mode
 
 	switch (csd_struct) {
 	case 0:
