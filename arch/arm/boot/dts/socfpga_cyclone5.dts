@@ -42,6 +42,15 @@
 	};
 
 	soc {
+
+			ulti_sdc_0: ulti_sdc@0xFF230000 {
+				compatible = "EXOR,ulti_sdc-13.1", "EXOR,ulti_sdc-1.0", "exor,ulti_sdc-1.0", "sdhci-ultimmc";
+				reg = < 0xFF230000 0x0000ffff >;
+				interrupt-parent = <&intc>;
+				interrupts = < 0 43 4 >;
+			}; //end ulti_sdc@0x100030000 (ulti_sdc_0)
+
+
 		clkmgr@ffd04000 {
 			clocks {
 				osc1 {

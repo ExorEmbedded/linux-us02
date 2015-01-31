@@ -1,8 +1,7 @@
 /*
- * sdhci-dove.c Support for SDHCI on Marvell's Dove SoC
+ * sdhci-ultimmc.c Support for SDHCI UltiMMC cora on Altera FPGA.
  *
- * Author: Saeed Bishara <saeed@marvell.com>
- *	   Mike Rapoport <mike@compulab.co.il>
+ * Author: Giovanni Pavoni Exor s.p.a.
  * Based on sdhci-cns3xxx.c
  *
  * This program is free software; you can redistribute it and/or modify
@@ -19,14 +18,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-//!!! #include <linux/clk.h>
 #include <linux/err.h>
-//!!!#include <linux/gpio.h>
 #include <linux/io.h>
 #include <linux/mmc/host.h>
 #include <linux/module.h>
 #include <linux/of.h>
-//!!!#include <linux/of_gpio.h>
 
 #include "sdhci-pltfm.h"
 
@@ -48,7 +44,7 @@ static u32 sdhci_ultimmc_readl(struct sdhci_host *host, int reg)
   u32 ret;
   reg = reg << 4; //Register map has offsets right shifted of 4 bits
   ret = readl(host->ioaddr + reg);
-//  printk("sdhci_ultimmc_readl reg=0x%x, val=0x%x\n",reg,ret); //!!! To be removed later
+//  printk("sdhci_ultimmc_readl reg=0x%x, val=0x%x\n",reg,ret); 
   return ret;
 }
 
@@ -57,7 +53,7 @@ static u16 sdhci_ultimmc_readw(struct sdhci_host *host, int reg)
   u16 ret;
   reg = reg << 4; //Register map has offsets right shifted of 4 bits
   ret = readw(host->ioaddr + reg);
-//  printk("sdhci_ultimmc_readw reg=0x%x, val=0x%x\n",reg,ret); //!!! To be removed later
+//  printk("sdhci_ultimmc_readw reg=0x%x, val=0x%x\n",reg,ret); 
   return ret;
 }
 
@@ -66,28 +62,36 @@ static u8 sdhci_ultimmc_readb(struct sdhci_host *host, int reg)
   u8 ret;
   reg = reg << 4; //Register map has offsets right shifted of 4 bits
   ret = readb(host->ioaddr + reg);
-//  printk("sdhci_ultimmc_readb reg=0x%x, val=0x%x\n",reg,ret); //!!! To be removed later
+//  printk("sdhci_ultimmc_readb reg=0x%x, val=0x%x\n",reg,ret); 
   return ret;
 }
 
 static void sdhci_ultimmc_writel(struct sdhci_host *host, u32 val, int reg)
 {
   reg = reg << 4; //Register map has offsets right shifted of 4 bits
-//  printk("sdhci_ultimmc_writel reg=0x%x, val=0x%x\n",reg,val); //!!! To be removed later
+//  printk("sdhci_ultimmc_writel reg=0x%x, val=0x%x\n",reg,val); 
   writel(val, host->ioaddr + reg);
 }
 
 static void sdhci_ultimmc_writew(struct sdhci_host *host, u16 val, int reg)
 {
+  if(reg == SDHCI_CLOCK_CONTROL)
+  {
+    // Force <50Mhz clock
+    if(((val >> SDHCI_DIVIDER_SHIFT) & SDHCI_DIV_MASK) < 0x01)
+    {
+      val |= (0x01 & SDHCI_DIV_MASK) << SDHCI_DIVIDER_SHIFT;
+    }
+  }
   reg = reg << 4; //Register map has offsets right shifted of 4 bits
-//  printk("sdhci_ultimmc_writew reg=0x%x, val=0x%x\n",reg,val); //!!! To be removed later
+//  printk("sdhci_ultimmc_writew reg=0x%x, val=0x%x\n",reg,val); 
   writew(val, host->ioaddr + reg);
 }
 
 static void sdhci_ultimmc_writeb(struct sdhci_host *host, u8 val, int reg)
 {
   reg = reg << 4; //Register map has offsets right shifted of 4 bits
-//  printk("sdhci_ultimmc_writeb reg=0x%x, val=0x%x\n",reg,val); //!!! To be removed later
+//  printk("sdhci_ultimmc_writeb reg=0x%x, val=0x%x\n",reg,val); 
   writeb(val, host->ioaddr + reg);
 }
 
@@ -103,10 +107,11 @@ static struct sdhci_ops sdhci_ultimmc_ops = {
 static struct sdhci_pltfm_data sdhci_ultimmc_pdata = {
 	.ops	= &sdhci_ultimmc_ops,
 	.quirks	= SDHCI_QUIRK_NO_SIMULT_VDD_AND_POWER |
-//!!!		  SDHCI_QUIRK_NO_BUSY_IRQ |  //NOTE: This flag is undefined to Try to use the "busy" IRQ to avoid wasting CPU time
+//		  SDHCI_QUIRK_NO_BUSY_IRQ |  //NOTE: This flag is undefined to Try to use the "busy" IRQ to avoid wasting CPU time
 		  SDHCI_QUIRK_BROKEN_TIMEOUT_VAL |
-//!!!		  SDHCI_QUIRK_FORCE_DMA |
-//!!!		  SDHCI_QUIRK_NO_HISPD_BIT | //NOTE: To be evaluated
+		  SDHCI_QUIRK_DELAY_AFTER_POWER |
+		  SDHCI_QUIRK_NO_MULTIBLOCK | 
+		  SDHCI_QUIRK_NO_HISPD_BIT | 
 		  SDHCI_QUIRK_BROKEN_DMA |   //Force disabling of DMA
 		  SDHCI_QUIRK_BROKEN_ADMA,
 };
@@ -141,6 +146,7 @@ static int sdhci_ultimmc_probe(struct platform_device *pdev)
 	sdhci_get_of_property(pdev);
 
 	printk("sdhci_ultimmc_probe 4 \n");
+	
 	ret = sdhci_add_host(host);
 	if (ret)
 		goto err_sdhci_add;
@@ -185,6 +191,5 @@ static struct platform_driver sdhci_ultimmc_driver = {
 module_platform_driver(sdhci_ultimmc_driver);
 
 MODULE_DESCRIPTION("SDHCI driver for ultimmc");
-MODULE_AUTHOR("Giovanni P., "
-	      "Yosko R.");
+MODULE_AUTHOR("Giovanni Pavoni");
 MODULE_LICENSE("GPL v2");
