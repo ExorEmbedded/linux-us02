@@ -110,7 +110,7 @@ static struct sdhci_pltfm_data sdhci_ultimmc_pdata = {
 //		  SDHCI_QUIRK_NO_BUSY_IRQ |  //NOTE: This flag is undefined to Try to use the "busy" IRQ to avoid wasting CPU time
 		  SDHCI_QUIRK_BROKEN_TIMEOUT_VAL |
 		  SDHCI_QUIRK_DELAY_AFTER_POWER |
-		  SDHCI_QUIRK_NO_MULTIBLOCK | 
+//		  SDHCI_QUIRK_NO_MULTIBLOCK | 
 		  SDHCI_QUIRK_NO_HISPD_BIT | 
 		  SDHCI_QUIRK_BROKEN_DMA |   //Force disabling of DMA
 		  SDHCI_QUIRK_BROKEN_ADMA,
