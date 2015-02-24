@@ -36,6 +36,11 @@
  *																			Display code #46: changed horizontal back porch to 39
  * 1.3			SS              17.02.15    Alligned to displayconfog_rev2.3.2.xml:
  *																			Added display code #51: 4,3" Rocktech for ECO
+ * 1.4			SS              24.02.15    On displayconfog_rev2.3.3.xml we removed all ECO/LINUX displays; no allignement will be performed.
+ *																			Added display code #52: for Altera kit, same code as #31 but MAX brightness=100% 
+ *																			Changed on display code #47 .pclk_freq = 64000 (original 72000): otherwise it will not work on Altera kit
+ *
+ * NEXT AVAILABLE DISPLAY CODE: 53
  */
  
 #ifndef DISPLAYCONFIG_H
@@ -277,7 +282,7 @@ static struct t_DisplayParams displayconfig[] = {
         .rezy      = 800, 
         .bpp       = 16,
         
-        .pclk_freq = 64000, 
+        .pclk_freq = 72000, 
         .pclk_inv  = 0,
         
         .hs_fp     = 11, 
@@ -433,8 +438,8 @@ static struct t_DisplayParams displayconfig[] = {
       .rezy      = 800, 
       .bpp       = 16,
       
-        .pclk_freq = 64000, 
-        .pclk_inv  = 0,
+      .pclk_freq = 64000, 
+      .pclk_inv  = 0,
       
       .hs_fp     = 11, 
       .hs_bp     = 110, 
@@ -555,7 +560,33 @@ static struct t_DisplayParams displayconfig[] = {
         .pwmfreq        = 10000,
         .brightness_min = 1,
         .brightness_max = 80,
-    },         
+    },  
+    /* 52: Evervision VGG804806_PWM for ALTERA kit 800x480*/
+    {
+        .dispid    = 52,
+        .rezx      = 800, 
+        .rezy      = 480, 
+        .bpp       = 16,
+        
+        .pclk_freq = 30000, 
+        .pclk_inv  = 0,
+        
+        .hs_fp     = 41, 
+        .hs_bp     = 35, 
+        .hs_w      = 129, 
+        .hs_inv    = 1,
+        
+        .vs_fp     = 12, 
+        .vs_bp     = 35, 
+        .vs_w      = 3, 
+        .vs_inv    = 1,
+        
+        .blank_inv      = 0,
+        
+        .pwmfreq        = 10000,
+        .brightness_min = 1,
+        .brightness_max = 100,
+    },       
     /* END OF LIST */
     {
       .dispid    = NODISPLAY,
