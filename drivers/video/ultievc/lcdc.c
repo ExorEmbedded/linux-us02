@@ -103,7 +103,7 @@ static void ultievc_setclkctrl(void)
     
     /* Now compute the register fields and write to register */
     clkctrl = clk_sel | (clk_div << 3);
-    if(displayconfig[displayindex].pclk_inv)
+    if(displayconfig[displayindex].pclk_inv == 0)
         clkctrl |= (1 << 7);
     
     writel(clkctrl, evcbase + CLKCTRL);
