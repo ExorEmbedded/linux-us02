@@ -21,8 +21,8 @@
 	#size-cells = <1>;
 
 	aliases {
-		ethernet0 = &gmac0;
 		ethernet1 = &gmac1;
+		ethernet0 = &gmac0;
 		serial0 = &uart0;
 		serial1 = &uart1;
 		timer0 = &timer0;
@@ -495,20 +495,6 @@
 			status = "disabled";
 		};
 
-		gmac0: ethernet@ff700000 {
-			compatible = "altr,socfpga-stmmac", "snps,dwmac-3.70a", "snps,dwmac";
-			reg = <0xff700000 0x2000>;
-			interrupts = <0 115 4>;
-			interrupt-names = "macirq";
-			mac-address = [00 00 00 00 00 00];/* Filled in by U-Boot */
-			clocks = <&emac0_clk>;
-			clock-names = "stmmaceth";
-			reset-names = "stmmaceth";
-			snps,multicast-filter-bins = <256>;
-			snps,perfect-filter-entries = <128>;
-			status = "disabled";
-		};
-
 		gmac1: ethernet@ff702000 {
 			compatible = "altr,socfpga-stmmac", "snps,dwmac-3.70a", "snps,dwmac";
 			reg = <0xff702000 0x2000>;
@@ -523,6 +509,20 @@
 			status = "disabled";
 		};
 
+		gmac0: ethernet@ff700000 {
+			compatible = "altr,socfpga-stmmac", "snps,dwmac-3.70a", "snps,dwmac";
+			reg = <0xff700000 0x2000>;
+			interrupts = <0 115 4>;
+			interrupt-names = "macirq";
+			mac-address = [00 00 00 00 00 00];/* Filled in by U-Boot */
+			clocks = <&emac0_clk>;
+			clock-names = "stmmaceth";
+			reset-names = "stmmaceth";
+			snps,multicast-filter-bins = <256>;
+			snps,perfect-filter-entries = <128>;
+			status = "disabled";
+		};
+		
 		hps_0_fpgamgr: fpgamgr@0xff706000 {
 			compatible = "altr,fpga-mgr-1.0", "altr,fpga-mgr";
 			transport = "mmio";

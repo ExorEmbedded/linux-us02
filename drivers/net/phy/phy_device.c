@@ -839,6 +839,8 @@ int genphy_read_status(struct phy_device *phydev)
 		return err;
 
 	if (AUTONEG_ENABLE == phydev->autoneg) {
+//AG
+#if 0
 		if (phydev->supported & (SUPPORTED_1000baseT_Half
 					| SUPPORTED_1000baseT_Full)) {
 			lpagb = phy_read(phydev, MII_STAT1000);
@@ -853,6 +855,7 @@ int genphy_read_status(struct phy_device *phydev)
 
 			lpagb &= adv << 2;
 		}
+#endif
 
 		lpa = phy_read(phydev, MII_LPA);
 

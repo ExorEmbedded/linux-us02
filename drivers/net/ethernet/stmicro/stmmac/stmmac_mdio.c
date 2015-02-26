@@ -154,18 +154,15 @@ static int stmmac_mdio_reset(struct mii_bus *bus)
 int stmmac_mdio_register(struct net_device *ndev)
 {
 	int err = 0;
-	struct mii_bus *new_bus;
+	static struct mii_bus *new_bus;
 	int *irqlist;
 	struct stmmac_priv *priv = netdev_priv(ndev);
 	struct stmmac_mdio_bus_data *mdio_bus_data = priv->plat->mdio_bus_data;
 	int addr, found;
 
+       pr_info("stmmac_mdio_register on device %s\n", ndev->name);
 	if (!mdio_bus_data)
 		return 0;
-
-	new_bus = mdiobus_alloc();
-	if (new_bus == NULL)
-		return -ENOMEM;
 
 	if (mdio_bus_data->irqs) {
 		irqlist = mdio_bus_data->irqs;
@@ -174,6 +171,16 @@ int stmmac_mdio_register(struct net_device *ndev)
 			priv->mii_irq[addr] = PHY_POLL;
 		irqlist = priv->mii_irq;
 	}
+	
+    if(new_bus != NULL)
+    {
+        pr_err("stmmac_mdio_register: Reusing the bus previously registered %s\n", new_bus->id);  
+    }
+	else
+    {
+	new_bus = mdiobus_alloc();
+	if (new_bus == NULL)
+		return -ENOMEM;
 
 	new_bus->name = "stmmac";
 	new_bus->read = &stmmac_mdio_read;
@@ -190,7 +197,10 @@ int stmmac_mdio_register(struct net_device *ndev)
 		pr_err("%s: Cannot register as MDIO bus\n", new_bus->name);
 		goto bus_register_fail;
 	}
-
+    }
+    
+    priv->mii = new_bus; 
+    
 	found = 0;
 	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
 		struct phy_device *phydev = new_bus->phy_map[addr];
@@ -240,12 +250,10 @@ int stmmac_mdio_register(struct net_device *ndev)
 
 	if (!found) {
 		pr_warning("%s: No PHY found\n", ndev->name);
-		mdiobus_unregister(new_bus);
-		mdiobus_free(new_bus);
-		return -ENODEV;
+	} else if (priv->plat->mdio_bus_data->phy_reset_mii) {
+		priv->plat->mdio_bus_data->phy_reset_mii(new_bus,
+			priv->plat->phy_addr);
 	}
-
-	priv->mii = new_bus;
 
 	return 0;
 
