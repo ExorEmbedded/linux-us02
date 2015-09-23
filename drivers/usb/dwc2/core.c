@@ -440,7 +440,7 @@ int dwc2_core_init(struct dwc2_hsotg *hsotg, bool select_phy, int irq)
 		dev_dbg(hsotg->dev, "registering common handler for irq%d\n",
 			irq);
 		retval = devm_request_irq(hsotg->dev, irq,
-					  dwc2_handle_common_intr, IRQF_SHARED,
+					  dwc2_handle_common_intr, IRQF_SHARED | IRQF_NO_THREAD,
 					  dev_name(hsotg->dev), hsotg);
 		if (retval)
 			return retval;

@@ -476,7 +476,6 @@ irqreturn_t dwc2_handle_common_intr(int irq, void *dev)
 		goto out;
 	}
 
-	spin_lock(&hsotg->lock);
 irq_retry:
 	gintsts = dwc2_read_common_intr(hsotg);
 	if (gintsts & ~GINTSTS_PRTINT)
@@ -613,7 +612,6 @@ irq_retry:
 	if (gintsts & IRQ_RETRY_MASK && --retry_count > 0)
 		goto irq_retry;
 
-	spin_unlock(&hsotg->lock);
 out:
 	return IRQ_RETVAL(retval);
 }

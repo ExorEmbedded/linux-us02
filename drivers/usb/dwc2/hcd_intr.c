@@ -83,6 +83,8 @@ static void dwc2_track_missed_sofs(struct dwc2_hsotg *hsotg)
 #endif
 }
 
+extern int usb_hub_clear_tt_buffer_irq(struct urb *urb);
+
 static void dwc2_hc_handle_tt_clear(struct dwc2_hsotg *hsotg,
 				    struct dwc2_host_chan *chan,
 				    struct dwc2_qtd *qtd)
@@ -99,7 +101,7 @@ static void dwc2_hc_handle_tt_clear(struct dwc2_hsotg *hsotg,
 	if (chan->qh->dev_speed != USB_SPEED_HIGH &&
 	    qtd->urb->status != -EPIPE && qtd->urb->status != -EREMOTEIO) {
 		chan->qh->tt_buffer_dirty = 1;
-		if (usb_hub_clear_tt_buffer(usb_urb))
+		if (usb_hub_clear_tt_buffer_irq(usb_urb))
 			/* Clear failed; let's hope things work anyway */
 			chan->qh->tt_buffer_dirty = 0;
 	}
@@ -2070,13 +2072,10 @@ int dwc2_hcd_intr(struct dwc2_hsotg *hsotg)
 		return 0;
 	}
 
-	spin_lock(&hsotg->lock);
-
 	/* Check if HOST Mode */
 	if (dwc2_is_host_mode(hsotg)) {
 		gintsts = dwc2_read_core_intr(hsotg);
 		if (!gintsts) {
-			spin_unlock(&hsotg->lock);
 			return 0;
 		}
 
@@ -2121,8 +2120,6 @@ int dwc2_hcd_intr(struct dwc2_hsotg *hsotg)
 				 readl(hsotg->regs + GINTMSK));
 		}
 	}
-
-	spin_unlock(&hsotg->lock);
 
 	return retval;
 }
