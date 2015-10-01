@@ -2071,11 +2071,14 @@ int dwc2_hcd_intr(struct dwc2_hsotg *hsotg)
 		dev_warn(hsotg->dev, "Controller is disconnected\n");
 		return 0;
 	}
+	
+	raw_spin_lock(&hsotg->lock);
 
 	/* Check if HOST Mode */
 	if (dwc2_is_host_mode(hsotg)) {
 		gintsts = dwc2_read_core_intr(hsotg);
 		if (!gintsts) {
+			raw_spin_unlock(&hsotg->lock);
 			return 0;
 		}
 
@@ -2120,6 +2123,6 @@ int dwc2_hcd_intr(struct dwc2_hsotg *hsotg)
 				 readl(hsotg->regs + GINTMSK));
 		}
 	}
-
+	raw_spin_unlock(&hsotg->lock); 
 	return retval;
 }

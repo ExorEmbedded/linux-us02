@@ -759,9 +759,9 @@ static int s3c_hsotg_ep_queue_lock(struct usb_ep *ep, struct usb_request *req,
 	unsigned long flags = 0;
 	int ret = 0;
 
-	spin_lock_irqsave(&dwc2->lock, flags);
+	raw_spin_lock_irqsave(&dwc2->lock, flags);
 	ret = s3c_hsotg_ep_queue(ep, req, gfp_flags);
-	spin_unlock_irqrestore(&dwc2->lock, flags);
+	raw_spin_unlock_irqrestore(&dwc2->lock, flags);
 
 	return ret;
 }
@@ -1221,9 +1221,9 @@ static void s3c_hsotg_complete_request(struct dwc2_hsotg *dwc2,
 	 */
 
 	if (hs_req->req.complete) {
-		spin_unlock(&dwc2->lock);
+		raw_spin_unlock(&dwc2->lock);
 		hs_req->req.complete(&hs_ep->ep, &hs_req->req);
-		spin_lock(&dwc2->lock);
+		raw_spin_lock(&dwc2->lock);
 	}
 
 	/*
@@ -2229,7 +2229,7 @@ static int s3c_hsotg_ep_enable(struct usb_ep *ep,
 	/*dev_info(dwc2->dev, "%s: read DXEPCTL=0x%08x from 0x%08x\n",
 		__func__, epctrl, epctrl_reg);
 	*/
-	spin_lock_irqsave(&dwc2->lock, flags);
+	raw_spin_lock_irqsave(&dwc2->lock, flags);
 
 	epctrl &= ~(DXEPCTL_EPTYPE_MASK | DXEPCTL_MPS_MASK);
 	epctrl |= DXEPCTL_MPS(mps);
@@ -2308,7 +2308,7 @@ static int s3c_hsotg_ep_enable(struct usb_ep *ep,
 	s3c_hsotg_ctrl_epint(dwc2, index, dir_in, 1);
 
 out:
-	spin_unlock_irqrestore(&dwc2->lock, flags);
+	raw_spin_unlock_irqrestore(&dwc2->lock, flags);
 	return ret;
 }
 
@@ -2335,7 +2335,7 @@ static int s3c_hsotg_ep_disable(struct usb_ep *ep)
 
 	epctrl_reg = dir_in ? DIEPCTL(index) : DOEPCTL(index);
 
-	spin_lock_irqsave(&dwc2->lock, flags);
+	raw_spin_lock_irqsave(&dwc2->lock, flags);
 	/* terminate all requests with shutdown */
 	kill_all_requests(dwc2, hs_ep, -ESHUTDOWN, false);
 
@@ -2351,7 +2351,7 @@ static int s3c_hsotg_ep_disable(struct usb_ep *ep)
 	/* disable endpoint interrupts */
 	s3c_hsotg_ctrl_epint(dwc2, hs_ep->index, hs_ep->dir_in, 0);
 
-	spin_unlock_irqrestore(&dwc2->lock, flags);
+	raw_spin_unlock_irqrestore(&dwc2->lock, flags);
 	return 0;
 }
 
@@ -2386,15 +2386,15 @@ static int s3c_hsotg_ep_dequeue(struct usb_ep *ep, struct usb_request *req)
 
 	dev_info(dwc2->dev, "ep_dequeue(%p,%p)\n", ep, req);
 
-	spin_lock_irqsave(&dwc2->lock, flags);
+	raw_spin_lock_irqsave(&dwc2->lock, flags);
 
 	if (!on_list(hs_ep, hs_req)) {
-		spin_unlock_irqrestore(&dwc2->lock, flags);
+		raw_spin_unlock_irqrestore(&dwc2->lock, flags);
 		return -EINVAL;
 	}
 
 	s3c_hsotg_complete_request(dwc2, hs_ep, hs_req, -ECONNRESET);
-	spin_unlock_irqrestore(&dwc2->lock, flags);
+	raw_spin_unlock_irqrestore(&dwc2->lock, flags);
 
 	return 0;
 }
@@ -2464,9 +2464,9 @@ static int s3c_hsotg_ep_sethalt_lock(struct usb_ep *ep, int value)
 	unsigned long flags = 0;
 	int ret = 0;
 
-	spin_lock_irqsave(&dwc2->lock, flags);
+	raw_spin_lock_irqsave(&dwc2->lock, flags);
 	ret = s3c_hsotg_ep_sethalt(ep, value);
-	spin_unlock_irqrestore(&dwc2->lock, flags);
+	raw_spin_unlock_irqrestore(&dwc2->lock, flags);
 
 	return ret;
 }
@@ -2646,7 +2646,7 @@ static int s3c_hsotg_udc_stop(struct usb_gadget *gadget,
 	for (ep = 0; ep < dwc2->s3c_hsotg->num_of_eps; ep++)
 		s3c_hsotg_ep_disable(&dwc2->eps[ep].ep);
 
-	spin_lock_irqsave(&dwc2->lock, flags);
+	raw_spin_lock_irqsave(&dwc2->lock, flags);
 
 	s3c_hsotg_phy_disable(dwc2);
 	regulator_bulk_disable(ARRAY_SIZE(dwc2->s3c_hsotg->supplies), dwc2->s3c_hsotg->supplies);
@@ -2654,7 +2654,7 @@ static int s3c_hsotg_udc_stop(struct usb_gadget *gadget,
 	dwc2->driver = NULL;
 	dwc2->gadget.speed = USB_SPEED_UNKNOWN;
 
-	spin_unlock_irqrestore(&dwc2->lock, flags);
+	raw_spin_unlock_irqrestore(&dwc2->lock, flags);
 
 	dev_info(dwc2->dev, "unregistered gadget driver '%s'\n",
 		 driver->driver.name);
@@ -2687,7 +2687,7 @@ static int s3c_hsotg_pullup(struct usb_gadget *gadget, int is_on)
 
 	dev_dbg(dwc2->dev, "%s: is_in: %d\n", __func__, is_on);
 
-	spin_lock_irqsave(&dwc2->lock, flags);
+	raw_spin_lock_irqsave(&dwc2->lock, flags);
 	if (is_on) {
 		s3c_hsotg_phy_enable(dwc2);
 		s3c_hsotg_core_init(dwc2);
@@ -2697,7 +2697,7 @@ static int s3c_hsotg_pullup(struct usb_gadget *gadget, int is_on)
 	}
 
 	dwc2->gadget.speed = USB_SPEED_UNKNOWN;
-	spin_unlock_irqrestore(&dwc2->lock, flags);
+	raw_spin_unlock_irqrestore(&dwc2->lock, flags);
 
 	return 0;
 }
@@ -3019,7 +3019,7 @@ static int ep_show(struct seq_file *seq, void *v)
 	seq_printf(seq, "request list (%p,%p):\n",
 		   ep->queue.next, ep->queue.prev);
 
-	spin_lock_irqsave(&dwc2->lock, flags);
+	raw_spin_lock_irqsave(&dwc2->lock, flags);
 
 	list_for_each_entry(req, &ep->queue, queue) {
 		if (--show_limit < 0) {
@@ -3034,7 +3034,7 @@ static int ep_show(struct seq_file *seq, void *v)
 			   req->req.actual, req->req.status);
 	}
 
-	spin_unlock_irqrestore(&dwc2->lock, flags);
+	raw_spin_unlock_irqrestore(&dwc2->lock, flags);
 
 	return 0;
 }

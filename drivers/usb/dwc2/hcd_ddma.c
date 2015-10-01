@@ -145,10 +145,10 @@ static void dwc2_frame_list_free(struct dwc2_hsotg *hsotg)
 	dma_addr_t frame_list_dma;
 	unsigned long flags;
 
-	spin_lock_irqsave(&hsotg->lock, flags);
+	raw_spin_lock_irqsave(&hsotg->lock, flags);
 
 	if (!hsotg->frame_list) {
-		spin_unlock_irqrestore(&hsotg->lock, flags);
+		raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 		return;
 	}
 
@@ -156,7 +156,7 @@ static void dwc2_frame_list_free(struct dwc2_hsotg *hsotg)
 	frame_list_dma = hsotg->frame_list_dma;
 	hsotg->frame_list = NULL;
 
-	spin_unlock_irqrestore(&hsotg->lock, flags);
+	raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 
 	dma_free_coherent(hsotg->dev, 4 * FRLISTEN_64_SIZE, frame_list,
 			  frame_list_dma);
@@ -167,12 +167,12 @@ static void dwc2_per_sched_enable(struct dwc2_hsotg *hsotg, u32 fr_list_en)
 	u32 hcfg;
 	unsigned long flags;
 
-	spin_lock_irqsave(&hsotg->lock, flags);
+	raw_spin_lock_irqsave(&hsotg->lock, flags);
 
 	hcfg = readl(hsotg->regs + HCFG);
 	if (hcfg & HCFG_PERSCHEDENA) {
 		/* already enabled */
-		spin_unlock_irqrestore(&hsotg->lock, flags);
+		raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 		return;
 	}
 
@@ -183,7 +183,7 @@ static void dwc2_per_sched_enable(struct dwc2_hsotg *hsotg, u32 fr_list_en)
 	dev_vdbg(hsotg->dev, "Enabling Periodic schedule\n");
 	writel(hcfg, hsotg->regs + HCFG);
 
-	spin_unlock_irqrestore(&hsotg->lock, flags);
+	raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 }
 
 static void dwc2_per_sched_disable(struct dwc2_hsotg *hsotg)
@@ -191,12 +191,12 @@ static void dwc2_per_sched_disable(struct dwc2_hsotg *hsotg)
 	u32 hcfg;
 	unsigned long flags;
 
-	spin_lock_irqsave(&hsotg->lock, flags);
+	raw_spin_lock_irqsave(&hsotg->lock, flags);
 
 	hcfg = readl(hsotg->regs + HCFG);
 	if (!(hcfg & HCFG_PERSCHEDENA)) {
 		/* already disabled */
-		spin_unlock_irqrestore(&hsotg->lock, flags);
+		raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 		return;
 	}
 
@@ -204,7 +204,7 @@ static void dwc2_per_sched_disable(struct dwc2_hsotg *hsotg)
 	dev_vdbg(hsotg->dev, "Disabling Periodic schedule\n");
 	writel(hcfg, hsotg->regs + HCFG);
 
-	spin_unlock_irqrestore(&hsotg->lock, flags);
+	raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 }
 
 /*

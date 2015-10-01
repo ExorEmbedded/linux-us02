@@ -509,7 +509,7 @@ struct dwc2_hsotg {
 
 	struct delayed_work start_work;
 	struct delayed_work reset_work;
-	spinlock_t lock;
+	raw_spinlock_t lock;
 	void *priv;
 	u8 otg_port;
 	u32 *frame_list;
@@ -828,9 +828,9 @@ extern void s3c_hsotg_remove(struct dwc2_hsotg *dwc2);
 do { \
 	if ((_hs)->gadget.speed != USB_SPEED_UNKNOWN && \
 		(_hs)->driver && (_hs)->driver->_entry) { \
-			spin_unlock(&_hs->lock); \
+			raw_spin_unlock(&_hs->lock); \
 			(_hs)->driver->_entry(&(_hs)->gadget); \
-			spin_lock(&_hs->lock); \
+			raw_spin_lock(&_hs->lock); \
 	} \
 } while (0)
 

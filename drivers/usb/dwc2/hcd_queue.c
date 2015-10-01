@@ -651,7 +651,7 @@ int dwc2_hcd_qtd_add(struct dwc2_hsotg *hsotg, struct dwc2_qtd *qtd,
 		allocated = 1;
 	}
 
-	spin_lock_irqsave(&hsotg->lock, flags);
+	raw_spin_lock_irqsave(&hsotg->lock, flags);
 	retval = dwc2_hcd_qh_add(hsotg, *qh);
 	if (retval && allocated) {
 		struct dwc2_qtd *qtd2, *qtd2_tmp;
@@ -665,12 +665,12 @@ int dwc2_hcd_qtd_add(struct dwc2_hsotg *hsotg, struct dwc2_qtd *qtd,
 					 qtd_list_entry)
 			dwc2_hcd_qtd_unlink_and_free(hsotg, qtd2, qh_tmp);
 
-		spin_unlock_irqrestore(&hsotg->lock, flags);
+		raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 		dwc2_hcd_qh_free(hsotg, qh_tmp);
 	} else {
 		qtd->qh = *qh;
 		list_add_tail(&qtd->qtd_list_entry, &(*qh)->qtd_list);
-		spin_unlock_irqrestore(&hsotg->lock, flags);
+		raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 	}
 
 	return retval;

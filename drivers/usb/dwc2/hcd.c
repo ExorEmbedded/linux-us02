@@ -154,7 +154,7 @@ static void dwc2_qh_list_free(struct dwc2_hsotg *hsotg,
 		/* The list hasn't been initialized yet */
 		return;
 
-	spin_lock_irqsave(&hsotg->lock, flags);
+	raw_spin_lock_irqsave(&hsotg->lock, flags);
 
 	/* Ensure there are no QTDs or URBs left */
 	dwc2_kill_urbs_in_qh_list(hsotg, qh_list);
@@ -167,12 +167,12 @@ static void dwc2_qh_list_free(struct dwc2_hsotg *hsotg,
 					 qtd_list_entry)
 			dwc2_hcd_qtd_unlink_and_free(hsotg, qtd, qh);
 
-		spin_unlock_irqrestore(&hsotg->lock, flags);
+		raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 		dwc2_hcd_qh_free(hsotg, qh);
-		spin_lock_irqsave(&hsotg->lock, flags);
+		raw_spin_lock_irqsave(&hsotg->lock, flags);
 	}
 
-	spin_unlock_irqrestore(&hsotg->lock, flags);
+	raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 }
 
 /*
@@ -392,11 +392,11 @@ static int dwc2_hcd_urb_enqueue(struct dwc2_hsotg *hsotg,
 			 */
 			return 0;
 
-		spin_lock_irqsave(&hsotg->lock, flags);
+		raw_spin_lock_irqsave(&hsotg->lock, flags);
 		tr_type = dwc2_hcd_select_transactions(hsotg);
 		if (tr_type != DWC2_TRANSACTION_NONE)
 			dwc2_hcd_queue_transactions(hsotg, tr_type);
-		spin_unlock_irqrestore(&hsotg->lock, flags);
+		raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 	}
 
 	return retval;
@@ -467,7 +467,7 @@ static int dwc2_hcd_endpoint_disable(struct dwc2_hsotg *hsotg,
 	unsigned long flags;
 	int rc;
 
-	spin_lock_irqsave(&hsotg->lock, flags);
+	raw_spin_lock_irqsave(&hsotg->lock, flags);
 
 	qh = ep->hcpriv;
 	if (!qh) {
@@ -483,9 +483,9 @@ static int dwc2_hcd_endpoint_disable(struct dwc2_hsotg *hsotg,
 			goto err;
 		}
 
-		spin_unlock_irqrestore(&hsotg->lock, flags);
+		raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 		usleep_range(20000, 40000);
-		spin_lock_irqsave(&hsotg->lock, flags);
+		raw_spin_lock_irqsave(&hsotg->lock, flags);
 		qh = ep->hcpriv;
 		if (!qh) {
 			rc = -EINVAL;
@@ -500,14 +500,14 @@ static int dwc2_hcd_endpoint_disable(struct dwc2_hsotg *hsotg,
 		dwc2_hcd_qtd_unlink_and_free(hsotg, qtd, qh);
 
 	ep->hcpriv = NULL;
-	spin_unlock_irqrestore(&hsotg->lock, flags);
+	raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 	dwc2_hcd_qh_free(hsotg, qh);
 
 	return 0;
 
 err:
 	ep->hcpriv = NULL;
-	spin_unlock_irqrestore(&hsotg->lock, flags);
+	raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 
 	return rc;
 }
@@ -1380,7 +1380,7 @@ static void dwc2_port_suspend(struct dwc2_hsotg *hsotg, u16 windex)
 
 	dev_dbg(hsotg->dev, "%s()\n", __func__);
 
-	spin_lock_irqsave(&hsotg->lock, flags);
+	raw_spin_lock_irqsave(&hsotg->lock, flags);
 
 	if (windex == hsotg->otg_port && dwc2_host_is_b_hnp_enabled(hsotg)) {
 		gotgctl = readl(hsotg->regs + GOTGCTL);
@@ -1408,11 +1408,11 @@ static void dwc2_port_suspend(struct dwc2_hsotg *hsotg, u16 windex)
 		pcgctl &= ~PCGCTL_STOPPCLK;
 		writel(pcgctl, hsotg->regs + PCGCTL);
 
-		spin_unlock_irqrestore(&hsotg->lock, flags);
+		raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 
 		usleep_range(200000, 250000);
 	} else {
-		spin_unlock_irqrestore(&hsotg->lock, flags);
+		raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 	}
 }
 
@@ -2153,10 +2153,10 @@ void dwc2_host_complete(struct dwc2_hsotg *hsotg, void *context,
 	kfree(dwc2_urb);
 
 	if (!hcd_giveback_urb_in_bh(dwc2_hsotg_to_hcd(hsotg)))
-		spin_unlock(&hsotg->lock);
+		raw_spin_unlock(&hsotg->lock);
 	usb_hcd_giveback_urb(dwc2_hsotg_to_hcd(hsotg), urb, status);
 	if (!hcd_giveback_urb_in_bh(dwc2_hsotg_to_hcd(hsotg)))
-		spin_lock(&hsotg->lock);
+		raw_spin_lock(&hsotg->lock);
 }
 
 /*
@@ -2206,12 +2206,12 @@ static int _dwc2_hcd_start(struct usb_hcd *hcd)
 
 	dev_dbg(hsotg->dev, "DWC OTG HCD START\n");
 
-	spin_lock_irqsave(&hsotg->lock, flags);
+	raw_spin_lock_irqsave(&hsotg->lock, flags);
 
 	hcd->state = HC_STATE_RUNNING;
 
 	if (dwc2_is_device_mode(hsotg)) {
-		spin_unlock_irqrestore(&hsotg->lock, flags);
+		raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 		return 0;	/* why 0 ?? */
 	}
 
@@ -2224,7 +2224,7 @@ static int _dwc2_hcd_start(struct usb_hcd *hcd)
 		usb_hcd_resume_root_hub(hcd);
 	}
 
-	spin_unlock_irqrestore(&hsotg->lock, flags);
+	raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 	return 0;
 }
 
@@ -2237,9 +2237,9 @@ static void _dwc2_hcd_stop(struct usb_hcd *hcd)
 	struct dwc2_hsotg *hsotg = dwc2_hcd_to_hsotg(hcd);
 	unsigned long flags;
 
-	spin_lock_irqsave(&hsotg->lock, flags);
+	raw_spin_lock_irqsave(&hsotg->lock, flags);
 	dwc2_hcd_stop(hsotg);
-	spin_unlock_irqrestore(&hsotg->lock, flags);
+	raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 
 	usleep_range(1000, 3000);
 }
@@ -2357,10 +2357,10 @@ static int _dwc2_hcd_urb_enqueue(struct usb_hcd *hcd, struct urb *urb,
 
 	if (usb_pipetype(urb->pipe) == PIPE_ISOCHRONOUS ||
 	    usb_pipetype(urb->pipe) == PIPE_INTERRUPT) {
-		spin_lock_irqsave(&hsotg->lock, flags);
+		raw_spin_lock_irqsave(&hsotg->lock, flags);
 		if (!dwc2_hcd_is_bandwidth_allocated(hsotg, ep))
 			alloc_bandwidth = 1;
-		spin_unlock_irqrestore(&hsotg->lock, flags);
+		raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 	}
 
 	switch (usb_pipetype(urb->pipe)) {
@@ -2430,11 +2430,11 @@ static int _dwc2_hcd_urb_enqueue(struct usb_hcd *hcd, struct urb *urb,
 		kfree(dwc2_urb);
 	} else {
 		if (alloc_bandwidth) {
-			spin_lock_irqsave(&hsotg->lock, flags);
+			raw_spin_lock_irqsave(&hsotg->lock, flags);
 			dwc2_allocate_bus_bandwidth(hcd,
 					dwc2_hcd_get_ep_bandwidth(hsotg, ep),
 					urb);
-			spin_unlock_irqrestore(&hsotg->lock, flags);
+			raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 		}
 	}
 
@@ -2454,7 +2454,7 @@ static int _dwc2_hcd_urb_dequeue(struct usb_hcd *hcd, struct urb *urb,
 	dev_dbg(hsotg->dev, "DWC OTG HCD URB Dequeue\n");
 	dwc2_dump_urb_info(hcd, urb, "urb_dequeue");
 
-	spin_lock_irqsave(&hsotg->lock, flags);
+	raw_spin_lock_irqsave(&hsotg->lock, flags);
 
 	if (!urb->hcpriv) {
 		dev_dbg(hsotg->dev, "## urb->hcpriv is NULL ##\n");
@@ -2467,14 +2467,14 @@ static int _dwc2_hcd_urb_dequeue(struct usb_hcd *hcd, struct urb *urb,
 	urb->hcpriv = NULL;
 
 	/* Higher layer software sets URB status */
-	spin_unlock(&hsotg->lock);
+	raw_spin_unlock(&hsotg->lock);
 	usb_hcd_giveback_urb(hcd, urb, status);
-	spin_lock(&hsotg->lock);
+	raw_spin_lock(&hsotg->lock);
 
 	dev_dbg(hsotg->dev, "Called usb_hcd_giveback_urb()\n");
 	dev_dbg(hsotg->dev, "  urb->status = %d\n", urb->status);
 out:
-	spin_unlock_irqrestore(&hsotg->lock, flags);
+	raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 
 	return rc;
 }
@@ -2516,14 +2516,14 @@ static void _dwc2_hcd_endpoint_reset(struct usb_hcd *hcd,
 
 	udev = to_usb_device(hsotg->dev);
 
-	spin_lock_irqsave(&hsotg->lock, flags);
+	raw_spin_lock_irqsave(&hsotg->lock, flags);
 
 	usb_settoggle(udev, epnum, is_out, 0);
 	if (is_control)
 		usb_settoggle(udev, epnum, !is_out, 0);
 	dwc2_hcd_endpoint_reset(hsotg, ep);
 
-	spin_unlock_irqrestore(&hsotg->lock, flags);
+	raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 }
 
 /*
@@ -2576,13 +2576,13 @@ static void _dwc2_hcd_clear_tt_buffer_complete(struct usb_hcd *hcd,
 	if (!qh)
 		return;
 
-	spin_lock_irqsave(&hsotg->lock, flags);
+	raw_spin_lock_irqsave(&hsotg->lock, flags);
 	qh->tt_buffer_dirty = 0;
 
 	if (hsotg->flags.b.port_connect_status)
 		dwc2_hcd_queue_transactions(hsotg, DWC2_TRANSACTION_ALL);
 
-	spin_unlock_irqrestore(&hsotg->lock, flags);
+	raw_spin_unlock_irqrestore(&hsotg->lock, flags);
 }
 
 static struct hc_driver dwc2_hc_driver = {

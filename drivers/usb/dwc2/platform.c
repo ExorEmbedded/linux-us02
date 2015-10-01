@@ -176,7 +176,7 @@ static int dwc2_driver_probe(struct platform_device *dev)
 		if (retval)
 			return retval;
 	}
-	spin_lock_init(&hsotg->lock);
+	raw_spin_lock_init(&hsotg->lock);
 
 	platform_set_drvdata(dev, hsotg);
 	return retval;

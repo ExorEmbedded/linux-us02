@@ -209,11 +209,11 @@ static void dwc2_handle_otg_intr(struct dwc2_hsotg *hsotg)
 				 * Call callback function with spin lock
 				 * released
 				 */
-				spin_unlock(&hsotg->lock);
+				raw_spin_unlock(&hsotg->lock);
 
 				/* Initialize the Core for Host mode */
 				dwc2_hcd_start(hsotg);
-				spin_lock(&hsotg->lock);
+				raw_spin_lock(&hsotg->lock);
 				hsotg->op_state = OTG_STATE_B_HOST;
 			}
 		} else {
@@ -239,18 +239,18 @@ static void dwc2_handle_otg_intr(struct dwc2_hsotg *hsotg)
 		if (dwc2_is_device_mode(hsotg)) {
 			dev_dbg(hsotg->dev, "a_suspend->a_peripheral (%d)\n",
 				hsotg->op_state);
-			spin_unlock(&hsotg->lock);
+			raw_spin_unlock(&hsotg->lock);
 			dwc2_hcd_disconnect(hsotg);
-			spin_lock(&hsotg->lock);
+			raw_spin_lock(&hsotg->lock);
 			hsotg->op_state = OTG_STATE_A_PERIPHERAL;
 		} else {
 			/* Need to disable SOF interrupt immediately */
 			gintmsk = readl(hsotg->regs + GINTMSK);
 			gintmsk &= ~GINTSTS_SOF;
 			writel(gintmsk, hsotg->regs + GINTMSK);
-			spin_unlock(&hsotg->lock);
+			raw_spin_unlock(&hsotg->lock);
 			dwc2_hcd_start(hsotg);
-			spin_lock(&hsotg->lock);
+			raw_spin_lock(&hsotg->lock);
 			hsotg->op_state = OTG_STATE_A_HOST;
 		}
 	}
@@ -291,9 +291,9 @@ static void dwc2_handle_conn_id_status_change_intr(struct dwc2_hsotg *hsotg)
 	 * Release lock before scheduling workq as it holds spinlock during
 	 * scheduling.
 	 */
-	spin_unlock(&hsotg->lock);
+	raw_spin_unlock(&hsotg->lock);
 	queue_work(hsotg->wq_otg, &hsotg->wf_otg);
-	spin_lock(&hsotg->lock);
+	raw_spin_lock(&hsotg->lock);
 
 	/* Clear interrupt */
 	writel(GINTSTS_CONIDSTSCHNG, hsotg->regs + GINTSTS);
@@ -408,9 +408,9 @@ static void dwc2_handle_usb_suspend_intr(struct dwc2_hsotg *hsotg)
 			dev_dbg(hsotg->dev, "a_peripheral->a_host\n");
 
 			/* Clear the a_peripheral flag, back to a_host */
-			spin_unlock(&hsotg->lock);
+			raw_spin_unlock(&hsotg->lock);
 			dwc2_hcd_start(hsotg);
-			spin_lock(&hsotg->lock);
+			raw_spin_lock(&hsotg->lock);
 			hsotg->op_state = OTG_STATE_A_HOST;
 		}
 	}
@@ -475,6 +475,8 @@ irqreturn_t dwc2_handle_common_intr(int irq, void *dev)
 		dev_warn(hsotg->dev, "Controller is disconnected\n");
 		goto out;
 	}
+
+	raw_spin_lock(&hsotg->lock);
 
 irq_retry:
 	gintsts = dwc2_read_common_intr(hsotg);
@@ -611,7 +613,7 @@ irq_retry:
 	 */
 	if (gintsts & IRQ_RETRY_MASK && --retry_count > 0)
 		goto irq_retry;
-
+	raw_spin_unlock(&hsotg->lock);
 out:
 	return IRQ_RETVAL(retval);
 }
