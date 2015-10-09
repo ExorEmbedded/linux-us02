@@ -77,6 +77,8 @@
 			phy-mode = "mii";
 			phy-addr = <0x01>;
 			status = "okay";
+			reset0 = <&agpio0 0 0>;
+			reset1 = <&agpio0 1 0>;
 		};
 
 		ethernet@ff700000 {
@@ -96,6 +98,18 @@
 		gpio@ff70a000 {
 			status = "okay";
 		};
+
+		agpio0: gpio@0xff210010 {
+		  compatible = "altr,pio-1.0";
+		  reg = <0xff210010 0x10>;
+		  interrupts = <0 44 4>;
+		  width=<32>;
+		  altr,interrupt_type = < 3 >;
+		  #gpio-cells = <2>;
+		  gpio-controller;
+		  #interrupt-cells = <1>;
+		  interrupt-controller;
+		};		
 
 		i2c0: i2c@ffc04000 {
 			speed-mode = <0>;

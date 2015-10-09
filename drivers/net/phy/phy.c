@@ -748,6 +748,9 @@ void phy_state_machine(struct work_struct *work)
 
 	mutex_lock(&phydev->lock);
 
+	if (phydev->drv->link_change_notify)
+		phydev->drv->link_change_notify(phydev);
+
 	if (phydev->adjust_state)
 		phydev->adjust_state(phydev->attached_dev);
 
