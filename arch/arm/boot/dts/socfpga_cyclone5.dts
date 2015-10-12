@@ -104,7 +104,7 @@
 		  reg = <0xff210010 0x10>;
 		  interrupts = <0 44 4>;
 		  width=<32>;
-		  altr,interrupt_type = < 3 >;
+		  altr,interrupt_type = < 4 >;
 		  #gpio-cells = <2>;
 		  gpio-controller;
 		  #interrupt-cells = <1>;
