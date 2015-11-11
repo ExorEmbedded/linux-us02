@@ -39,7 +39,10 @@
 #include "ocram.h"
 #include "cmdline.h"
 
+#if defined(CONFIG_FB_ULTIEVC)
 extern int ultievc_init_fb(u32 id);
+#endif
+
 void __iomem *socfpga_scu_base_addr = ((void __iomem *)(SOCFPGA_SCU_VIRT_BASE));
 void __iomem *sys_manager_base_addr;
 void __iomem *rst_manager_base_addr;
@@ -157,7 +160,7 @@ static void __init socfpga_soc_device_init(void)
 		kfree(soc_dev_attr);
 		return;
 	}
-
+#if defined(CONFIG_FB_ULTIEVC)
  	/*
 	*  Initialize the UltiEVC framebuffer driver
 	*/   
@@ -166,7 +169,7 @@ static void __init socfpga_soc_device_init(void)
     	printk(KERN_INFO "Initializing ultiEVC with display ID %d\n", display_id);
 
     	ultievc_init_fb(display_id);
-	
+#endif	
 	return;
 }
 
