@@ -339,7 +339,6 @@ static int stmmac_plat_init(struct platform_device *pdev)
 
 	phymode = of_get_phy_mode(pdev->dev.of_node);
 
-    	phymode = PHY_INTERFACE_MODE_MII; //!!!
 	switch (phymode) {
 	case PHY_INTERFACE_MODE_RGMII:
 	case PHY_INTERFACE_MODE_RGMII_ID:
