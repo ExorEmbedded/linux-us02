@@ -1,0 +1,195 @@
+/*
+ * Copyright Altera Corporation (C) 2015. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/dts-v1/;
+/* First 4KB has trampoline code for secondary cores. */
+/memreserve/ 0x00000000 0x0001000;
+#include "socfpga.dtsi"
+
+/ {
+	soc {
+		clkmgr@ffd04000 {
+			clocks {
+				osc1 {
+					clock-frequency = <25000000>;
+				};
+			};
+		};
+
+		emmc: dwmmc0@ff704000 {
+			num-slots = <1>;
+			broken-cd;
+			bus-width = <8>;
+			cap-mmc-highspeed;
+			cap-sd-highspeed;
+		};
+
+		sysmgr@ffd08000 {
+			cpu1-start-addr = <0xffd080c4>;
+		};
+	};
+};
+
+&watchdog0 {
+	status = "okay";
+};
+
+
+/ {
+	model = "Altera SOCFPGA Cyclone V";
+	compatible = "altr,socfpga-cyclone5", "altr,socfpga";
+
+	chosen {
+		bootargs = "console=ttyS0,57600 hw_dispid=45";
+	};
+
+	memory {
+		name = "memory";
+		device_type = "memory";
+		reg = <0x0 0x40000000>; /* 1GB */
+	};
+
+	aliases {
+		ethernet0 = &gmac0;
+		ethernet1 = &gmac1;
+		mmc0 = &ulti_sdc_0;
+		mmc1 = &emmc;
+	};
+
+	regulator_3_3v: 3-3-v-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "3.3V";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
+	ulti_sdc_0: ulti_sdc@0xFF230000 {
+		compatible = "EXOR,ulti_sdc-13.1", "EXOR,ulti_sdc-1.0", "exor,ulti_sdc-1.0", "sdhci-ultimmc";
+		reg = < 0xFF230000 0x0000ffff >;
+		interrupt-parent = <&intc>;
+		interrupts = < 0 43 4 >;
+	}; //end ulti_sdc@0x100030000 (ulti_sdc_0)
+
+	ethernet@ff702000 {
+		phy-mode = "mii";
+		phy-addr = <0x01>;
+		status = "okay";
+		reset0 = <&agpio0 0 0>;
+		reset1 = <&agpio0 1 0>;
+	};
+
+	ethernet@ff700000 {
+		phy-mode = "mii";
+		phy-addr = <0x00>;
+		status = "okay";
+	};
+		
+	agpio0: gpio@0xff210010 {
+		compatible = "altr,pio-1.0";
+		reg = <0xff210010 0x10>;
+		interrupts = <0 44 4>;
+		width=<32>;
+		altr,interrupt_type = < 4 >;
+		#gpio-cells = <2>;
+		gpio-controller;
+		#interrupt-cells = <1>;
+		interrupt-controller;
+	};		
+};
+
+&gmac0 {
+	phy-mode = "mii";
+	snps,phy-addr = <0x00>;
+	status = "okay";
+};
+
+&gmac1 {
+	phy-mode = "mii";
+	snps,phy-addr = <0x01>;
+	rxd0-skew-ps = <0>;
+	rxd0-skew-ps = <0>;
+	rxd1-skew-ps = <0>;
+	rxd2-skew-ps = <0>;
+	rxd3-skew-ps = <0>;
+	txen-skew-ps = <0>;
+	txc-skew-ps = <2600>;
+	rxdv-skew-ps = <0>;
+	rxc-skew-ps = <2000>;
+	snps,max-mtu = <3800>;
+	status = "okay";
+};
+
+&gpio0 {
+	status = "okay";
+};
+
+&gpio1 {
+	status = "okay";
+};
+
+&gpio2 {
+	status = "okay";
+};
+
+&i2c0 {
+	status = "okay";
+	speed-mode = <0>;
+
+	seeprom0:seeprom0@54 {
+		compatible = "atmel,24c02";
+		reg = <0x54>;
+	};
+
+	seeprom1:seeprom1@50 {
+		compatible = "atmel,24c02";
+		reg = <0x50>;
+	};
+
+	seeprom2:seeprom1@56 {
+		compatible = "atmel,24c02";
+		reg = <0x56>;
+	};
+	
+	m41t83:m41t83@68 {
+		compatible = "stm,m41t83";
+		reg = <0x68>;
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&usb1 {
+	status = "okay";
+}; 	
+
+&emmc {
+	vmmc-supply = <&regulator_3_3v>;
+	vqmmc-supply = <&regulator_3_3v>;
+
+	num-slots = <1>;
+	supports-highspeed;
+	broken-cd;
+	altr,dw-mshc-ciu-div = <3>;
+	altr,dw-mshc-sdr-timing = <0 3>;
+
+	slot@0 {
+		reg = <0>;
+		bus-width = <8>;
+	};
+};
+
