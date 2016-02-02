@@ -45,7 +45,6 @@
 #include <linux/io.h>
 
 #include "ultievc.h"
-#include "displayconfig.h"
 
 /*
  *  RAM we reserve for the frame buffer. This defines the maximum screen
@@ -55,6 +54,11 @@
 static void*      videomemory;
 static u_long     videomemorysize = VIDEOMEMSIZE;
 dma_addr_t        videomemoryphys;
+
+/* 
+ * This is the global variable containing the display id value passed from cmdline
+ */
+extern int hw_dispid;
 
 /*
  * Base address for accessing the UltiEVC registers
@@ -277,15 +281,12 @@ static int ultievcfb_probe(struct platform_device *dev)
     static int f_probed;
     struct resource *res;
     struct device devx;
-    
     mutex_init(&lock);
     
     /*
      * Sanity check to avoid void pointers and multiple allocations
      */
     devx= dev->dev;
-    if(!devx.platform_data)
-        return -ENODEV;
     
     if(f_probed)
         return -ENODEV;
@@ -295,7 +296,7 @@ static int ultievcfb_probe(struct platform_device *dev)
     /*
      * Get the display ID and perform the required sanity checks
      */
-    displayid = *((u32*)devx.platform_data);
+    displayid = hw_dispid;
     printk(KERN_INFO "*** ultievcfb_probe. DisplayId=%d\n", displayid);
 
     displayindex = 0;
@@ -422,11 +423,19 @@ static int ultievcfb_remove(struct platform_device *dev)
 	return 0;
 }
 
+static struct of_device_id ultievcfb_match[] = {
+	{ .compatible = "exor,ultievcfb" },
+	{},
+};
+MODULE_DEVICE_TABLE(of, ultievcfb_match);
+
 static struct platform_driver ultievcfb_driver = {
 	.probe	= ultievcfb_probe,
 	.remove = ultievcfb_remove,
 	.driver = {
 	.name	= "ultievcfb",
+	.owner = THIS_MODULE,
+	.of_match_table = ultievcfb_match,
 	},
 };
 

@@ -34,8 +34,6 @@
 #include <linux/init.h>
 
 #include "ultievc.h"
-#include "displayconfig.h"
-
 
 extern dma_addr_t    videomemoryphys;
 extern u32           displayindex;

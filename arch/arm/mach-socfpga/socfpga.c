@@ -40,7 +40,6 @@
 #include "ocram.h"
 #include "cmdline.h"
 
-extern int ultievc_init_fb(u32 id);
 void __iomem *socfpga_scu_base_addr = ((void __iomem *)(SOCFPGA_SCU_VIRT_BASE));
 void __iomem *sys_manager_base_addr;
 void __iomem *rst_manager_base_addr;
@@ -115,8 +114,8 @@ static void __init socfpga_soc_device_init(void)
 	const char *machine;
 	u32 id = SOCFPGA_ID_DEFAULT;
 	u32 rev = SOCFPGA_REVISION_DEFAULT;
-	int display_id;	
 	int err;
+	void __iomem *sdram_ctrl_base_addr;
 
 	root = of_find_node_by_path("/");
 	if (!root)
@@ -155,15 +154,15 @@ static void __init socfpga_soc_device_init(void)
 		kfree(soc_dev_attr);
 		return;
 	}
-
- 	/*
-	*  Initialize the UltiEVC framebuffer driver
-	*/   
-    	display_id = 47; // assume default value;
-    	cmdline_getint("hw_dispid", &display_id);
-    	pr_info(KERN_INFO "Initializing ultiEVC with display ID %d\n", display_id);
-
-    	ultievc_init_fb(display_id);
+	
+	/* Enable ports from SDRAM to FPGA and set highest priority 
+	 * for FPGA to SDRAM read ports (to assure proper fetching 
+	 * for the display refresh)
+	 */
+	sdram_ctrl_base_addr = ioremap(0xffc25000,4096);
+	__raw_writel(0xffff, sdram_ctrl_base_addr + 0x80);
+	__raw_writel(0x36d971cf, sdram_ctrl_base_addr + 0xac);
+	iounmap(sdram_ctrl_base_addr);
 	
 	return;
 }

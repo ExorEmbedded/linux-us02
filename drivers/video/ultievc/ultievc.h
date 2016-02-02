@@ -21,7 +21,7 @@
 #ifndef ULTIEVCH_H
 #define ULTIEVCH_H
 
-#include "displayconfig.h"
+#include <video/displayconfig.h>
 
 
 /* -----------------------------------------------------------

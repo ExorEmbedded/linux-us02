@@ -83,6 +83,12 @@
 		interrupts = < 0 43 4 >;
 	}; //end ulti_sdc@0x100030000 (ulti_sdc_0)
 
+	ultievcfb_0: ultievcfb@0xff200000 {
+	  compatible = "exor,ultievcfb";
+	  reg = <0xff200000 0x00000fff>;
+	  status = "okay";
+	};
+	
 	ethernet@ff702000 {
 		phy-mode = "mii";
 		phy-addr = <0x01>;
