@@ -466,7 +466,14 @@ static void spi_set_cs(struct spi_device *spi, bool enable)
 
 	if (spi->cs_gpio >= 0)
 		gpio_set_value(spi->cs_gpio, !enable);
-	else if (spi->master->set_cs)
+	/*else if (spi->master->set_cs)
+	 *NOTE: The HPS SPI core of the Altera SOC (US02) requires the CS lines 
+	 *      to be driven as GPIOs, otherwise they would toggle at any byte and
+	 *      this would not work for some devices (ie: FRAM).
+	 *      At the same time the "core internal" CS line needs to be activated in
+	 *      parallel, otherwise the SPI transfer does not start.
+	 */   
+	if (spi->master->set_cs)
 		spi->master->set_cs(spi, !enable);
 }
 

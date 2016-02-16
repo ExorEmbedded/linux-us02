@@ -82,8 +82,11 @@ static int dw_spi_mmio_probe(struct platform_device *pdev)
 	dws->num_cs = num_cs;
 
 	if (pdev->dev.of_node) {
-		int i;
-
+		int i, prop;
+		
+		if (!of_property_read_u32(pdev->dev.of_node, "bus-num", &prop))
+		  dws->bus_num = prop;
+		
 		for (i = 0; i < dws->num_cs; i++) {
 			int cs_gpio = of_get_named_gpio(pdev->dev.of_node,
 					"cs-gpios", i);
