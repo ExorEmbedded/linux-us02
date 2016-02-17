@@ -113,7 +113,24 @@
 		gpio-controller;
 		#interrupt-cells = <1>;
 		interrupt-controller;
-	};		
+	};	
+
+	leds { 
+		compatible = "gpio-leds";
+		status = "okay";
+
+		led@1 {
+			label = "us02:dl:usr0";
+			gpios = <&porta 16 0>;
+			default-state = "on";
+		};
+
+		led@2 {
+			label = "us02:fault:usr0";
+			gpios = <&porta 14 0>;
+			default-state = "off";
+		};
+	};
 };
 
 &gmac0 {
