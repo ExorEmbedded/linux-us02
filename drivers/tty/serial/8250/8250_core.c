@@ -48,6 +48,11 @@
 
 #include "8250.h"
 
+#include <linux/of.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
+#include <dt-bindings/gpio/gpio.h>
+
 /*
  * Configuration:
  *   share_irqs - whether we pass IRQF_SHARED to request_irq().  This option
@@ -1362,10 +1367,44 @@ static void autoconfig_irq(struct uart_8250_port *up)
 
 static inline void __stop_tx(struct uart_8250_port *p)
 {
+	int res;
+	struct circ_buf *xmit = &p->port.state->xmit;
+	
+	/* handle rs485 */
+	if (p->rs485.flags & SER_RS485_ENABLED) {
+		/* do nothing if current tx not yet completed */
+		res = serial_in(p, UART_LSR) & UART_LSR_TEMT;
+		if (!res)
+			return;
+
+		/* if there's no more data to send, turn off rts */
+		if (uart_circ_empty(xmit)) {
+			/* if rts not already disabled */
+			res = (p->rs485.flags & SER_RS485_RTS_AFTER_SEND) ? 1 : 0;
+			if (gpio_get_value(p->rts_gpio) != res) {
+				if (p->rs485.delay_rts_after_send > 0) {
+					mdelay(p->rs485.delay_rts_after_send);
+				}
+				gpio_set_value(p->rts_gpio, res);
+			}
+		}
+	}
+  
 	if (p->ier & UART_IER_THRI) {
 		p->ier &= ~UART_IER_THRI;
 		serial_out(p, UART_IER, p->ier);
 		serial8250_rpm_put_tx(p);
+	}
+	
+	if ((p->rs485.flags & SER_RS485_ENABLED) &&
+	    !(p->rs485.flags & SER_RS485_RX_DURING_TX)) 
+	{
+	  //RX enable by using the prg phy dedicated gpio pin
+	  if (gpio_is_valid(p->rxen_gpio)) 
+	    gpio_set_value(p->rxen_gpio, 1);
+	  
+	  p->ier = UART_IER_RLSI | UART_IER_RDI;
+	  serial_out(p, UART_IER, p->ier);
 	}
 }
 
@@ -1388,6 +1427,7 @@ static void serial8250_stop_tx(struct uart_port *port)
 
 static void serial8250_start_tx(struct uart_port *port)
 {
+	int res;
 	struct uart_8250_port *up = up_to_u8250p(port);
 
 	serial8250_rpm_get_tx(up);
@@ -1395,6 +1435,42 @@ static void serial8250_start_tx(struct uart_port *port)
 	if (up->dma && !up->dma->tx_dma(up))
 		return;
 
+	/* handle rs485 */
+	if (up->rs485.flags & SER_RS485_ENABLED)
+	{
+		/* if rts not already enabled */
+		res = (up->rs485.flags & SER_RS485_RTS_ON_SEND) ? 1 : 0;
+		if (gpio_get_value(up->rts_gpio) != res) {
+			gpio_set_value(up->rts_gpio, res);
+			if (up->rs485.delay_rts_before_send > 0) {
+				mdelay(up->rs485.delay_rts_before_send);
+			}
+		}
+	}
+	else
+	{
+	  /*
+	  * If we are in RS232 mode and we have a programmable phy, enable the TX if not yet done.
+	  */
+	  if (gpio_is_valid(up->mode_gpio)) 
+	    if (gpio_is_valid(up->rts_gpio))
+	    {
+	      res = (up->rs485.flags & SER_RS485_RTS_ON_SEND) ? 1 : 0;
+	      if (gpio_get_value(up->rts_gpio) != res)
+	      {
+		gpio_set_value(up->rts_gpio, res);
+	      }
+	    }
+	}
+
+	if ((up->rs485.flags & SER_RS485_ENABLED) &&
+	    !(up->rs485.flags & SER_RS485_RX_DURING_TX))
+	{
+	  //RX disable by using the prg phy dedicated gpio pin
+	  if (gpio_is_valid(up->rxen_gpio)) 
+	    gpio_set_value(up->rxen_gpio, 0);
+	}
+	
 	if (!(up->ier & UART_IER_THRI)) {
 		up->ier |= UART_IER_THRI;
 		serial_port_out(port, UART_IER, up->ier);
@@ -2143,6 +2219,89 @@ static void serial8250_put_poll_char(struct uart_port *port,
 }
 
 #endif /* CONFIG_CONSOLE_POLL */
+
+/* Enable or disable the rs485 support */
+static void
+serial_8250_config_rs485(struct uart_port *port, struct serial_rs485 *rs485conf)
+{
+	struct uart_8250_port *up = up_to_u8250p(port);
+	unsigned long flags;
+	unsigned int mode;
+	int val;
+
+	pm_runtime_get_sync(up->port.dev);
+	spin_lock_irqsave(&up->port.lock, flags);
+
+	/* Disable interrupts from this port */
+	mode = up->ier;
+	up->ier = 0;
+	serial_out(up, UART_IER, 0);
+
+	/* store new config */
+	up->rs485 = *rs485conf;
+
+	/*
+	 * Just as a precaution, only allow rs485
+	 * to be enabled if the gpio pin is valid
+	 */
+	if (gpio_is_valid(up->rts_gpio)) {
+		/* enable / disable rts */
+		val = (up->rs485.flags & SER_RS485_ENABLED) ?
+			SER_RS485_RTS_AFTER_SEND : SER_RS485_RTS_ON_SEND;
+		val = (up->rs485.flags & val) ? 1 : 0;
+		gpio_set_value(up->rts_gpio, val);
+	} else
+		up->rs485.flags &= ~SER_RS485_ENABLED;
+	
+	/*
+	 * If we have a programmable phy, set the mode accordingly
+	 */
+	if (gpio_is_valid(up->mode_gpio)) 
+	{
+	  if(up->rs485.flags & SER_RS485_ENABLED)
+	    gpio_set_value(up->mode_gpio, 1);
+	  else
+	    gpio_set_value(up->mode_gpio, 0);
+	}
+	
+	//RX enable by using the prg phy dedicated gpio pin
+	if (gpio_is_valid(up->rxen_gpio)) 
+	  gpio_set_value(up->rxen_gpio, 1);
+	
+	/* Enable interrupts */
+	up->ier = mode;
+	serial_out(up, UART_IER, up->ier);
+
+	spin_unlock_irqrestore(&up->port.lock, flags);
+	pm_runtime_mark_last_busy(up->port.dev);
+	pm_runtime_put_autosuspend(up->port.dev);
+}
+
+static int serial8250_ioctl(struct uart_port *port, unsigned int cmd, unsigned long arg)
+{
+	struct serial_rs485 rs485conf;
+
+	switch (cmd) {
+	case TIOCSRS485:
+		if (copy_from_user(&rs485conf, (struct serial_rs485 *) arg,
+					sizeof(rs485conf)))
+			return -EFAULT;
+
+		serial_8250_config_rs485(port, &rs485conf);
+		break;
+
+	case TIOCGRS485:
+		if (copy_to_user((struct serial_rs485 *) arg,
+					&(up_to_u8250p(port)->rs485),
+					sizeof(rs485conf)))
+			return -EFAULT;
+		break;
+
+	default:
+		return -ENOIOCTLCMD;
+	}
+	return 0;
+}
 
 int serial8250_do_startup(struct uart_port *port)
 {
@@ -3117,6 +3276,7 @@ static const struct uart_ops serial8250_pops = {
 	.request_port	= serial8250_request_port,
 	.config_port	= serial8250_config_port,
 	.verify_port	= serial8250_verify_port,
+	.ioctl		= serial8250_ioctl,
 #ifdef CONFIG_CONSOLE_POLL
 	.poll_get_char = serial8250_get_poll_char,
 	.poll_put_char = serial8250_put_poll_char,
@@ -3667,6 +3827,91 @@ void serial8250_resume_port(int line)
 	uart_resume_port(&serial8250_reg, port);
 }
 
+int serial_8250_probe_rs485(struct uart_8250_port *up, struct device_node *np)
+{
+	struct serial_rs485 *rs485conf = &up->rs485;
+	u32 rs485_delay[2];
+	enum of_gpio_flags flags;
+	int ret;
+
+	rs485conf->flags = 0;
+	up->rts_gpio = -EINVAL;
+	up->mode_gpio = -EINVAL;
+	up->rxen_gpio = -EINVAL;
+
+	if (!np)
+		return 0;
+
+	if (of_property_read_bool(np, "rs485-rts-active-high"))
+	{
+	  rs485conf->flags |= SER_RS485_RTS_ON_SEND;
+	}
+	else
+	  rs485conf->flags |= SER_RS485_RTS_AFTER_SEND;
+
+	/* check for tx enable gpio */
+	up->rts_gpio = of_get_named_gpio_flags(np, "rts-gpio", 0, &flags);
+	if (gpio_is_valid(up->rts_gpio)) {
+		ret = gpio_request(up->rts_gpio, "8250-serial");
+		if (ret < 0)
+			return ret;
+		ret = gpio_direction_output(up->rts_gpio,
+					    flags & SER_RS485_RTS_AFTER_SEND);
+		if (ret < 0)
+			return ret;
+	} else
+		up->rts_gpio = -EINVAL;
+	
+	/* check for mode gpio, which is used to switch from RS485 <-> RS232 on programmable phys */
+	up->mode_gpio = of_get_named_gpio(np, "mode-gpio", 0);
+	if (gpio_is_valid(up->mode_gpio)) 
+	{
+	  ret = gpio_request(up->mode_gpio, "8250-serial");
+	  if (ret < 0)
+	    return ret;
+	  ret = gpio_direction_output(up->mode_gpio,0);
+	  if (ret < 0)
+	    return ret;
+	} 
+	else
+	  up->mode_gpio = -EINVAL;
+
+	/* check for rxen gpio, which is used to enable/disable the rx on programmable phys */
+	up->rxen_gpio = of_get_named_gpio(np, "rxen-gpio", 0);
+	if (gpio_is_valid(up->rxen_gpio)) 
+	{
+	  ret = gpio_request(up->rxen_gpio, "8250-serial");
+	  if (ret < 0)
+	    return ret;
+	  ret = gpio_direction_output(up->rxen_gpio,0);
+	  if (ret < 0)
+	    return ret;
+	  
+	  gpio_set_value(up->rxen_gpio, 1);
+	} 
+	else
+	  up->rxen_gpio = -EINVAL;
+	
+		
+	if (of_property_read_u32_array(np, "rs485-rts-delay",
+				    rs485_delay, 2) == 0) {
+		rs485conf->delay_rts_before_send = rs485_delay[0];
+		rs485conf->delay_rts_after_send = rs485_delay[1];
+	}
+
+	if (of_property_read_bool(np, "rs485-rx-during-tx"))
+		rs485conf->flags |= SER_RS485_RX_DURING_TX;
+
+	if (of_property_read_bool(np, "linux,rs485-enabled-at-boot-time"))
+	{
+		rs485conf->flags |= SER_RS485_ENABLED;
+		if (gpio_is_valid(up->mode_gpio)) 
+		  gpio_set_value(up->mode_gpio, 1);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(serial_8250_probe_rs485);
 /*
  * Register a set of serial devices attached to a platform device.  The
  * list is terminated with a zero flags entry, which means we expect
@@ -3868,6 +4113,21 @@ int serial8250_register_8250_port(struct uart_8250_port *up)
 		uart->port.rs485_config	= up->port.rs485_config;
 		uart->port.rs485	= up->port.rs485;
 		uart->dma		= up->dma;
+		
+		/* RS485 support through GPIO control pins and prg phy */
+		uart->rs485 = up->rs485;
+		if( (up->rts_gpio == 0) && (up->mode_gpio == 0) && (up->rxen_gpio == 0))
+		{
+		  uart->rts_gpio = -EINVAL;
+		  uart->mode_gpio = -EINVAL;
+		  uart->rxen_gpio = -EINVAL;
+		}
+		else
+		{
+		  uart->rts_gpio = up->rts_gpio;
+		  uart->mode_gpio = up->mode_gpio;
+		  uart->rxen_gpio = up->rxen_gpio;
+		}
 
 		/* Take tx_loadsz from fifosize if it wasn't set separately */
 		if (uart->port.fifosize && !uart->tx_loadsz)

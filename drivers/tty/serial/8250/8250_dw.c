@@ -497,6 +497,11 @@ static int dw8250_probe(struct platform_device *pdev)
 		err = dw8250_probe_of(&uart.port, data);
 		if (err)
 			goto err_reset;
+		
+		err = serial_8250_probe_rs485(&uart, pdev->dev.of_node);
+		if (err)
+			goto err_reset;
+		
 	} else if (ACPI_HANDLE(&pdev->dev)) {
 		err = dw8250_probe_acpi(&uart, data);
 		if (err)

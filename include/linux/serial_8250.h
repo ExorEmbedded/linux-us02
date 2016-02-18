@@ -103,6 +103,12 @@ struct uart_8250_port {
 						 *   if no_console_suspend
 						 */
 	unsigned char		probe;
+
+	struct serial_rs485	rs485;
+	int			rts_gpio;     /* If a valid gpio is mapped here, it will be used for RS485 operation */
+	int 			mode_gpio;    /* If a valid gpio is mapped here, it means we have a programmable RS485/RS232 phy */
+	int                     rxen_gpio;    /* If a valid gpio is mapped here, we will use it for disabling the RX echo while in RS485 mode */
+	
 #define UART_PROBE_RSA	(1 << 0)
 
 	/*
@@ -129,6 +135,7 @@ static inline struct uart_8250_port *up_to_u8250p(struct uart_port *up)
 }
 
 int serial8250_register_8250_port(struct uart_8250_port *);
+int serial_8250_probe_rs485(struct uart_8250_port *up, struct device_node *np);
 void serial8250_unregister_port(int line);
 void serial8250_suspend_port(int line);
 void serial8250_resume_port(int line);
