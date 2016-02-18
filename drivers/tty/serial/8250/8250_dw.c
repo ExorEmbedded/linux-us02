@@ -426,6 +426,7 @@ static int dw8250_probe(struct platform_device *pdev)
 	uart.port.type = PORT_8250;
 	uart.port.flags = UPF_SHARE_IRQ | UPF_BOOT_AUTOCONF | UPF_FIXED_PORT;
 	uart.port.dev = &pdev->dev;
+	uart.port.rs485_config = serial_8250_config_rs485;
 
 	uart.port.membase = devm_ioremap(&pdev->dev, regs->start,
 					 resource_size(regs));

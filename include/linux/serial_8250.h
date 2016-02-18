@@ -136,6 +136,7 @@ static inline struct uart_8250_port *up_to_u8250p(struct uart_port *up)
 
 int serial8250_register_8250_port(struct uart_8250_port *);
 int serial_8250_probe_rs485(struct uart_8250_port *up, struct device_node *np);
+int serial_8250_config_rs485(struct uart_port *port, struct serial_rs485 *rs485conf);
 void serial8250_unregister_port(int line);
 void serial8250_suspend_port(int line);
 void serial8250_resume_port(int line);

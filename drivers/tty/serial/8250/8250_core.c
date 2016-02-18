@@ -2221,7 +2221,7 @@ static void serial8250_put_poll_char(struct uart_port *port,
 #endif /* CONFIG_CONSOLE_POLL */
 
 /* Enable or disable the rs485 support */
-static void
+int
 serial_8250_config_rs485(struct uart_port *port, struct serial_rs485 *rs485conf)
 {
 	struct uart_8250_port *up = up_to_u8250p(port);
@@ -2230,7 +2230,6 @@ serial_8250_config_rs485(struct uart_port *port, struct serial_rs485 *rs485conf)
 	int val;
 
 	pm_runtime_get_sync(up->port.dev);
-	spin_lock_irqsave(&up->port.lock, flags);
 
 	/* Disable interrupts from this port */
 	mode = up->ier;
@@ -2272,36 +2271,11 @@ serial_8250_config_rs485(struct uart_port *port, struct serial_rs485 *rs485conf)
 	up->ier = mode;
 	serial_out(up, UART_IER, up->ier);
 
-	spin_unlock_irqrestore(&up->port.lock, flags);
 	pm_runtime_mark_last_busy(up->port.dev);
 	pm_runtime_put_autosuspend(up->port.dev);
-}
-
-static int serial8250_ioctl(struct uart_port *port, unsigned int cmd, unsigned long arg)
-{
-	struct serial_rs485 rs485conf;
-
-	switch (cmd) {
-	case TIOCSRS485:
-		if (copy_from_user(&rs485conf, (struct serial_rs485 *) arg,
-					sizeof(rs485conf)))
-			return -EFAULT;
-
-		serial_8250_config_rs485(port, &rs485conf);
-		break;
-
-	case TIOCGRS485:
-		if (copy_to_user((struct serial_rs485 *) arg,
-					&(up_to_u8250p(port)->rs485),
-					sizeof(rs485conf)))
-			return -EFAULT;
-		break;
-
-	default:
-		return -ENOIOCTLCMD;
-	}
 	return 0;
 }
+EXPORT_SYMBOL(serial_8250_config_rs485);
 
 int serial8250_do_startup(struct uart_port *port)
 {
@@ -3276,7 +3250,6 @@ static const struct uart_ops serial8250_pops = {
 	.request_port	= serial8250_request_port,
 	.config_port	= serial8250_config_port,
 	.verify_port	= serial8250_verify_port,
-	.ioctl		= serial8250_ioctl,
 #ifdef CONFIG_CONSOLE_POLL
 	.poll_get_char = serial8250_get_poll_char,
 	.poll_put_char = serial8250_put_poll_char,
