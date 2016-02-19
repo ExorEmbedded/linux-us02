@@ -1365,46 +1365,46 @@ static void autoconfig_irq(struct uart_8250_port *up)
 	port->irq = (irq > 0) ? irq : 0;
 }
 
+static inline void __stop_rs485_tx(struct uart_8250_port *p)
+{
+  volatile int res;
+  
+  if (p->rs485.flags & SER_RS485_ENABLED) 
+  {
+    /* Wait for current transfer to be completed (TX shift register empty) */
+     res = serial_in(p, UART_LSR) & UART_LSR_TEMT;
+     while(!res)
+     {
+       udelay(10);
+       res = serial_in(p, UART_LSR) & UART_LSR_TEMT;
+     }
+    
+    /* if rts not already disabled */
+    res = (p->rs485.flags & SER_RS485_RTS_AFTER_SEND) ? 1 : 0;
+    if (gpio_get_value(p->rts_gpio) != res) 
+    {
+      if (p->rs485.delay_rts_after_send > 0) 
+      {
+	mdelay(p->rs485.delay_rts_after_send);
+      }
+      gpio_set_value(p->rts_gpio, res);
+    }
+    
+    if (!(p->rs485.flags & SER_RS485_RX_DURING_TX)) 
+    {
+      //RX enable by using the prg phy dedicated gpio pin
+      if (gpio_is_valid(p->rxen_gpio)) 
+	gpio_set_value(p->rxen_gpio, 1);
+    }
+  }
+}
+
 static inline void __stop_tx(struct uart_8250_port *p)
 {
-	int res;
-	struct circ_buf *xmit = &p->port.state->xmit;
-	
-	/* handle rs485 */
-	if (p->rs485.flags & SER_RS485_ENABLED) {
-		/* do nothing if current tx not yet completed */
-		res = serial_in(p, UART_LSR) & UART_LSR_TEMT;
-		if (!res)
-			return;
-
-		/* if there's no more data to send, turn off rts */
-		if (uart_circ_empty(xmit)) {
-			/* if rts not already disabled */
-			res = (p->rs485.flags & SER_RS485_RTS_AFTER_SEND) ? 1 : 0;
-			if (gpio_get_value(p->rts_gpio) != res) {
-				if (p->rs485.delay_rts_after_send > 0) {
-					mdelay(p->rs485.delay_rts_after_send);
-				}
-				gpio_set_value(p->rts_gpio, res);
-			}
-		}
-	}
-  
 	if (p->ier & UART_IER_THRI) {
 		p->ier &= ~UART_IER_THRI;
 		serial_out(p, UART_IER, p->ier);
 		serial8250_rpm_put_tx(p);
-	}
-	
-	if ((p->rs485.flags & SER_RS485_ENABLED) &&
-	    !(p->rs485.flags & SER_RS485_RX_DURING_TX)) 
-	{
-	  //RX enable by using the prg phy dedicated gpio pin
-	  if (gpio_is_valid(p->rxen_gpio)) 
-	    gpio_set_value(p->rxen_gpio, 1);
-	  
-	  p->ier = UART_IER_RLSI | UART_IER_RDI;
-	  serial_out(p, UART_IER, p->ier);
 	}
 }
 
@@ -1414,6 +1414,7 @@ static void serial8250_stop_tx(struct uart_port *port)
 
 	serial8250_rpm_get(up);
 	__stop_tx(up);
+	__stop_rs485_tx(up);
 
 	/*
 	 * We really want to stop the transmitter from sending.
@@ -1641,6 +1642,7 @@ void serial8250_tx_chars(struct uart_8250_port *up)
 	}
 	if (uart_circ_empty(xmit)) {
 		__stop_tx(up);
+		__stop_rs485_tx(up);
 		return;
 	}
 
@@ -1664,11 +1666,11 @@ void serial8250_tx_chars(struct uart_8250_port *up)
 	DEBUG_INTR("THRE...");
 
 	/*
-	 * With RPM enabled, we have to wait until the FIFO is empty before the
+	 * With RPM enabled or RS485 mode, we have to wait until the FIFO is empty before the
 	 * HW can go idle. So we get here once again with empty FIFO and disable
 	 * the interrupt and RPM in __stop_tx()
 	 */
-	if (uart_circ_empty(xmit) && !(up->capabilities & UART_CAP_RPM))
+	if (uart_circ_empty(xmit) && !(up->capabilities & UART_CAP_RPM) && !(up->rs485.flags & SER_RS485_ENABLED))
 		__stop_tx(up);
 }
 EXPORT_SYMBOL_GPL(serial8250_tx_chars);
