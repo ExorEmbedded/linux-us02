@@ -1375,7 +1375,7 @@ static inline void __stop_rs485_tx(struct uart_8250_port *p)
      res = serial_in(p, UART_LSR) & UART_LSR_TEMT;
      while(!res)
      {
-       udelay(10);
+       usleep_range(5,10);
        res = serial_in(p, UART_LSR) & UART_LSR_TEMT;
      }
     
