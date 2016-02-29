@@ -13,3 +13,4 @@ obj-$(CONFIG_VIDEOMODE_HELPERS) += of_display_timing.o of_videomode.o
 endif
 
 obj-$(CONFIG_FB_ULTIEVC)          += ultievc/
+obj-$(CONFIG_FB_ALTEVC)           += altevc/

@@ -1,0 +1,11 @@
+config FB_ALTEVC
+	bool "ALTEVC frame buffer support"
+	depends on FB
+	depends on ARCH_SOCFPGA
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	help
+          Frame buffer driver for US02 based boards, with ALTEVC videocontroller core.
+
+
