@@ -23,7 +23,7 @@
 
 #include <video/displayconfig.h>
 #define PALETTE_SIZE	256
-
+#define ALTEVC_INTERNAL_BUS_WIDTH 64
 
 /* -----------------------------------------------------------
    Function prototypes
@@ -85,10 +85,17 @@ int altevc_setvideomode(void); /* Configures the core according with the selecte
 #define ALTGAMMA_LUT0			0x1808
 #define ALTGAMMA_CONTROL		0x1800
 
+/* Register fields */
+#define PWR_VIDEO_ENA   (0x1 << 0)
+#define PWR_VDD_ENA     (0x1 << 1)
+#define PWR_BL_ENA      (0x1 << 2)
 
-/* -----------------------------------------------------------
-   Altevc regster fields
-   -----------------------------------------------------------*/
-
+#define DCTRL_VSYNC_EN  (0x1 << 0)
+#define DCTRL_VSYNC_INV (0x1 << 1)
+#define DCTRL_HSYNC_EN  (0x1 << 2)
+#define DCTRL_HSYNC_INV (0x1 << 3)
+#define DCTRL_BLANK_EN  (0x1 << 4)
+#define DCTRL_BLANK_INV (0x1 << 5)
+#define DCTRL_VCLK_INV  (0x1 << 6)
 
 #endif
