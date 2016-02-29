@@ -83,9 +83,9 @@
 		interrupts = < 0 43 4 >;
 	}; //end ulti_sdc@0x100030000 (ulti_sdc_0)
 
-	ultievcfb_0: ultievcfb@0xff200000 {
-	  compatible = "exor,ultievcfb";
-	  reg = <0xff200000 0x00000fff>;
+	altevcfb_0: altevcfb@0xff200000 {
+	  compatible = "exor,altevcfb";
+	  reg = <0xff200000 0x00001fff>;
 	  status = "okay";
 	};
 	
