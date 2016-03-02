@@ -29,6 +29,7 @@
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
+#include <linux/backlight.h>
 
 #include <linux/fb.h>
 #include <linux/init.h>
@@ -39,6 +40,7 @@ extern dma_addr_t    videomemoryphys;
 extern u32           displayindex;
 extern void __iomem* evcbase;
 extern struct mutex  lock;
+struct backlight_device	*bl = NULL;
 
 typedef struct pll_reconfig_data
 {
@@ -218,7 +220,6 @@ int altevc_setvideomode(void)
   
   writel(255, evcbase + BL_PWM_REG);
   
-  
   /* Perform powerup sequence */
   altevc_powerup();
   
@@ -226,4 +227,84 @@ int altevc_setvideomode(void)
   return 0;
 }
 
+/*----------------------------------------------------------------------------------------------------
+ * Backlight dimming related functions
+ *----------------------------------------------------------------------------------------------------*/
 
+int altevc_bl_update_status(struct backlight_device *bd)
+{
+  int level;
+  u32 pwctrl;
+  
+  mutex_lock(&lock);
+  
+  /* Get the level */
+  if (bd->props.power != FB_BLANK_UNBLANK || bd->props.fb_blank != FB_BLANK_UNBLANK)
+    level = 0;
+  else
+    level = bd->props.brightness;
+  
+  /* Sanity check */
+  if(level >= ALTEVC_BRIGHTNESS_LEVELS)
+  {
+    bd->props.brightness = ALTEVC_BRIGHTNESS_LEVELS - 1;
+    level = ALTEVC_BRIGHTNESS_LEVELS - 1;
+  }
+  
+  if(level < 0)
+    level = 0;
+  
+  /* BL off if level ==0, or set the proper BL dimming otherwise */
+  pwctrl = readl(evcbase + PWRCTRL_REG);
+  
+  if(level == 0)
+  {
+    pwctrl &= ~ PWR_BL_ENA;
+    writel(pwctrl, evcbase + PWRCTRL_REG);
+    writel(0, evcbase + BL_PWM_REG);
+  }
+  else
+  {
+    int min_duty = displayconfig[displayindex].brightness_min;
+    int max_duty = displayconfig[displayindex].brightness_max;
+    int duty = min_duty + ((max_duty - min_duty) * (level-1)) / (ALTEVC_BRIGHTNESS_LEVELS - 2);
+    duty = (255 * duty)/100;
+    if(duty > 255)
+      duty = 255;
+    
+    writel(duty & 0xff, evcbase + BL_PWM_REG);
+    pwctrl |= PWR_BL_ENA;
+    writel(pwctrl, evcbase + PWRCTRL_REG);
+  }
+  
+  mutex_unlock(&lock);
+  return 0;
+}
+
+static const struct backlight_ops altevc_bl_data = {
+	.update_status	= altevc_bl_update_status,
+};
+
+void altevc_bl_init(struct fb_info* sinfo)
+{
+	struct backlight_properties props;
+	
+	memset(&props, 0, sizeof(struct backlight_properties));
+	props.type = BACKLIGHT_RAW;
+	props.max_brightness = ALTEVC_BRIGHTNESS_LEVELS - 1;
+	bl = backlight_device_register("backlight", sinfo->dev , sinfo, &altevc_bl_data, &props);
+	if (IS_ERR(bl)) {
+		printk("Error %ld on backlight register\n", PTR_ERR(bl));
+		return;
+	}
+
+	bl->props.power = FB_BLANK_UNBLANK;
+	bl->props.fb_blank = FB_BLANK_UNBLANK;
+	bl->props.brightness = props.max_brightness;
+}
+
+void altevc_bl_deinit(void)
+{
+  if(bl)
+    backlight_device_unregister(bl);
+}

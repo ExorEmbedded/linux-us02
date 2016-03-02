@@ -24,12 +24,15 @@
 #include <video/displayconfig.h>
 #define PALETTE_SIZE	256
 #define ALTEVC_INTERNAL_BUS_WIDTH 64
+#define ALTEVC_BRIGHTNESS_LEVELS 26
 
 /* -----------------------------------------------------------
    Function prototypes
    -----------------------------------------------------------*/
 int altevc_setvideomode(void); /* Configures the core according with the selected display and activates it */
-
+int altevc_bl_update_status(struct backlight_device *bd);
+void altevc_bl_init(struct fb_info* sinfo);
+void altevc_bl_deinit(void);
 /* -----------------------------------------------------------
    Altevc regster mapping
    -----------------------------------------------------------*/

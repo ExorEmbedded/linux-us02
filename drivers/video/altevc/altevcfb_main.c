@@ -189,6 +189,7 @@ static int altevcfb_probe(struct platform_device *dev)
   static int f_probed;
   struct resource *res;
   struct device devx;
+  int ret;
   
   mutex_init(&lock);
   
@@ -307,7 +308,13 @@ static int altevcfb_probe(struct platform_device *dev)
   /*
    *  All OK, here we configure and activate the videocontroller
    */
-  return altevc_setvideomode();
+  ret = altevc_setvideomode();
+  
+  /*
+   * Init the backlight dimming subsystem
+   */
+  altevc_bl_init(info);
+  return ret;
   
 err2:
   fb_dealloc_cmap(&info->cmap);
@@ -324,6 +331,7 @@ static int altevcfb_remove(struct platform_device *dev)
 
 	if (info) {
 		unregister_framebuffer(info);
+		altevc_bl_deinit();
 		free_fbmem(&dev->dev, videomemorysize);
 		fb_dealloc_cmap(&info->cmap);
 		framebuffer_release(info);
