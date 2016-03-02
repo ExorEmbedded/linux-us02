@@ -190,6 +190,7 @@ static int altevcfb_probe(struct platform_device *dev)
   struct resource *res;
   struct device devx;
   int ret;
+  int initial_brightness = ALTEVC_BRIGHTNESS_LEVELS - 1;
   
   mutex_init(&lock);
   
@@ -311,9 +312,12 @@ static int altevcfb_probe(struct platform_device *dev)
   ret = altevc_setvideomode();
   
   /*
-   * Init the backlight dimming subsystem
+   * Init the backlight dimming subsystem (the initial brightness value is taken from the DTB file, if possible)
    */
-  altevc_bl_init(info);
+  if(dev->dev.of_node)
+    of_property_read_u32(dev->dev.of_node, "initial-brightness", &initial_brightness);
+  altevc_bl_init(info, initial_brightness);
+
   return ret;
   
 err2:

@@ -31,7 +31,7 @@
    -----------------------------------------------------------*/
 int altevc_setvideomode(void); /* Configures the core according with the selected display and activates it */
 int altevc_bl_update_status(struct backlight_device *bd);
-void altevc_bl_init(struct fb_info* sinfo);
+void altevc_bl_init(struct fb_info* sinfo, int initial_brightness);
 void altevc_bl_deinit(void);
 /* -----------------------------------------------------------
    Altevc regster mapping

@@ -72,7 +72,7 @@ static void altevc_powerup(void)
     msleep(100);
     
     pwctrl |= PWR_BL_ENA;
-    writel(pwctrl, evcbase + PWRCTRL_REG);
+    // The backlight will be eventually enabled by the backlight subsystem writel(pwctrl, evcbase + PWRCTRL_REG);
 }
 
 /*
@@ -214,7 +214,7 @@ int altevc_setvideomode(void)
   
   /* Backlight dimming init (for now we set 100% duty) */
   if((displayconfig[displayindex].pwmfreq < 100000) && (displayconfig[displayindex].pwmfreq > 1))
-    writel(100000 / displayconfig[displayindex].pwmfreq - 1, evcbase + BL_FREQ_REG); 
+    writel(100000 / displayconfig[displayindex].pwmfreq, evcbase + BL_FREQ_REG); 
   else
     writel(0, evcbase + BL_FREQ_REG);
   
@@ -285,7 +285,7 @@ static const struct backlight_ops altevc_bl_data = {
 	.update_status	= altevc_bl_update_status,
 };
 
-void altevc_bl_init(struct fb_info* sinfo)
+void altevc_bl_init(struct fb_info* sinfo, int initial_brightness)
 {
 	struct backlight_properties props;
 	
@@ -300,7 +300,8 @@ void altevc_bl_init(struct fb_info* sinfo)
 
 	bl->props.power = FB_BLANK_UNBLANK;
 	bl->props.fb_blank = FB_BLANK_UNBLANK;
-	bl->props.brightness = props.max_brightness;
+	bl->props.brightness = initial_brightness;
+	altevc_bl_update_status(bl);
 }
 
 void altevc_bl_deinit(void)
