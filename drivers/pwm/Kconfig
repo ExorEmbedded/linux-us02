@@ -373,4 +373,12 @@ config PWM_VT8500
 	  To compile this driver as a module, choose M here: the module
 	  will be called pwm-vt8500.
 
+config PWM_ULTIBUZZ
+	tristate "ULTIBUZZ PWM support"
+	depends on ARCH_SOCFPGA
+	help
+	  Generic PWM framework driver for the UltiBuzz core.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called pwm-ultibuzz.
 endif
