@@ -132,6 +132,19 @@
 			default-state = "off";
 		};
 	};
+
+	ultibuzz0: ultibuzz@0xff202000 {
+		compatible = "exor,ultibuzz";
+		reg = <0xff202000 0x20>;
+		ref-freq=<25600000>;
+		#pwm-cells = <3>;
+	};
+
+	beeper {
+	  compatible = "pwm-beeper";
+	  pwms = <&ultibuzz0 0 50000 0>;
+	};
+	
 };
 
 &gmac0 {

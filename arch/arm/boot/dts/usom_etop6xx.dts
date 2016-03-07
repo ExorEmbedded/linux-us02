@@ -137,6 +137,7 @@
 		compatible = "exor,ultibuzz";
 		reg = <0xff202000 0x20>;
 		ref-freq=<25600000>;
+		#pwm-cells = <3>;
 	};
 
 	beeper {

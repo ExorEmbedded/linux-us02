@@ -56,7 +56,6 @@ static int ultibuzz_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm, in
   ctrlval |= divider;
   writel(ctrlval, ultibuzz->mmio_base + ULTIBUZZ_CTRL_REG);
   
-  printk("ultibuzz_pwm_config freq_hz=%d ctrlval=0x%x\n",freq_hz,ctrlval);
   return 0;
 }
 
@@ -68,7 +67,6 @@ static int ultibuzz_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
   ctrlval |= CTRL_REG_ENAFIELD;
   writel(ctrlval, ultibuzz->mmio_base + ULTIBUZZ_CTRL_REG);
   
-  printk("ultibuzz_pwm_enable ctrlval=0x%x\n",ctrlval);
   return 0;
 }
 
@@ -79,8 +77,6 @@ static void ultibuzz_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
   u32 ctrlval = readl(ultibuzz->mmio_base + ULTIBUZZ_CTRL_REG);
   ctrlval &= ~CTRL_REG_ENAFIELD;
   writel(ctrlval, ultibuzz->mmio_base + ULTIBUZZ_CTRL_REG);
-  
-  printk("ultibuzz_pwm_disable ctrlval=0x%x\n",ctrlval);
 }
 
 static struct pwm_ops ultibuzz_pwm_ops = {
@@ -147,6 +143,7 @@ static int ultibuzz_pwm_probe(struct platform_device *pdev)
     return ret;
   
   platform_set_drvdata(pdev, ultibuzz);
+  writel(0, ultibuzz->mmio_base + ULTIBUZZ_CTRL_REG);
   return 0;
 }
 
