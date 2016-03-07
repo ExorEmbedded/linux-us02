@@ -3,7 +3,7 @@
  * 
  * Features are as follows
  *  - 1 layer only
- *  - RGB888 32 bit/pixel only
+ *  - RGB565 16 bit/pixel only
  *  - NO scroll
  *  - NO HW rotation
  *  - NO HW acceleration
@@ -50,7 +50,7 @@
  *  RAM we reserve for the frame buffer. This defines the maximum screen
  *  size
  */
-#define VIDEOMEMSIZE	(8*1024*1024)	/* 8 MB */
+#define VIDEOMEMSIZE	(4*1024*1024)	/* 4 MB */
 static void*      videomemory;
 static u_long     videomemorysize = VIDEOMEMSIZE;
 dma_addr_t        videomemoryphys;
@@ -109,10 +109,10 @@ static struct fb_var_screeninfo altevcfb_default = {
   .yres = 768,
   .xres_virtual = 1024,
   .yres_virtual = 768,
-  .bits_per_pixel = 32,
-  .blue =   { 16, 8, 0 },
-  .green = { 8 , 8, 0 },
-  .red =  { 0 , 8, 0 },
+  .bits_per_pixel = 16,
+  .red =   { 11, 5, 0 },
+  .green = { 5 , 6, 0 },
+  .blue =  { 0 , 5, 0 },
   .activate = FB_ACTIVATE_TEST,
   .height= -1,
   .width = -1,

@@ -153,7 +153,6 @@ int altevc_setvideomode(void)
   
   /* Start with cores in OFF state */
   writel(0, evcbase + CVO_CONTROL);
-  writel(0, evcbase + ALTGAMMA_CONTROL);
   writel(0, evcbase + ALTVIPFB_CONTROL);
   
   /* Setup sync polarities */
@@ -178,7 +177,7 @@ int altevc_setvideomode(void)
   
   /* Frame Reader Setup */
   writel(videomemoryphys, evcbase + ALTVIPFB_FRAME0_BASE_ADDRESS);
-  writel(displayconfig[displayindex].rezx * displayconfig[displayindex].rezy / (ALTEVC_INTERNAL_BUS_WIDTH/32), evcbase + ALTVIPFB_FRAME0_NUM_WORDS);
+  writel(displayconfig[displayindex].rezx * displayconfig[displayindex].rezy / (ALTEVC_INTERNAL_BUS_WIDTH/16), evcbase + ALTVIPFB_FRAME0_NUM_WORDS);
   writel(displayconfig[displayindex].rezx * displayconfig[displayindex].rezy, evcbase + ALTVIPFB_FRAME0_SAMPLES);
   writel(displayconfig[displayindex].rezx, evcbase + ALTVIPFB_FRAME0_WIDTH);
   writel(displayconfig[displayindex].rezy, evcbase + ALTVIPFB_FRAME0_HEIGHT);
@@ -186,17 +185,7 @@ int altevc_setvideomode(void)
   writel(0, evcbase + ALTVIPFB_FRAME_SELECT);
   /* Finally set the control register to 1 to start streaming */
   writel(1, evcbase + ALTVIPFB_CONTROL);
-  
-  /* Gamma correction setup (start with 1:1 mapping) */
-  for(i=0; i<256; i++)
-  {
-    writel(i, evcbase + ALTGAMMA_LUT0 + (i<<2));
-    writel(i, evcbase + ALTGAMMA_LUT1 + (i<<2));
-    writel(i, evcbase + ALTGAMMA_LUT2 + (i<<2));
-  }
-  /* Finally enable the GAMMA correction engine */
-  writel(1, evcbase + ALTGAMMA_CONTROL);
-  
+
   /* CVO core init */
   writel(0, evcbase + CVO_MODEX_VALID);     // Mode 1 invalid
   writel(0, evcbase + CVO_MODEX_CTRL);      // Progressive, parallel
