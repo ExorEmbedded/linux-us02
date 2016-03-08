@@ -145,6 +145,12 @@
 	  pwms = <&ultibuzz0 0 50000 0>;
 	};
 	
+	working_hours {
+	  compatible = "working_hours";
+	  eeprom = <&seeprom0>;
+	  rtcnvram = <&m41t83>;
+	  status = "okay";
+	};
 };
 
 &gmac0 {

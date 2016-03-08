@@ -138,7 +138,6 @@ static void altevc_setclkctrl(void)
  */
 int altevc_setvideomode(void)
 {
-  int i;
   u32 dctrl;
   
   mutex_lock(&lock);
@@ -297,4 +296,31 @@ void altevc_bl_deinit(void)
 {
   if(bl)
     backlight_device_unregister(bl);
+  bl=NULL;
 }
+
+/*
+ * Returns if the backlight is on (true) or off (false)
+ */
+bool altevc_bl_get_status(void)
+{
+  int level;
+
+  if(bl == NULL)
+    return false;
+
+  /* Get the level */
+  if (bl->props.power != FB_BLANK_UNBLANK || bl->props.fb_blank != FB_BLANK_UNBLANK)
+    level = 0;
+  else
+    level = bl->props.brightness;
+  
+  if(level < 0)
+    level = 0;
+  
+  if(level)
+    return true;
+  
+  return false;
+}
+EXPORT_SYMBOL(altevc_bl_get_status);
