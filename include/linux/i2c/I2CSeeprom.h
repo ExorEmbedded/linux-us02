@@ -143,5 +143,6 @@
 #define SEE_FUNCT_AREA_OFF 36          /* Function Area (bit-wide) */
 #define SEE_FACTORYSIZE	   64          /* Length of the factory section */
 #define SEE_MODULENAMELEN  16          /* Length of module name field */
+#define SEE_FUNCAREALEN    16          /* Length of function area */
 
 #endif /* _I2CSEEPROMFACTORY */

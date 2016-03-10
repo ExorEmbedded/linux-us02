@@ -38,6 +38,8 @@
 #include <linux/of_gpio.h>
 #include <dt-bindings/gpio/gpio.h>
 
+#define SEE_FUNCAREA_NBITS (SEE_FUNCAREALEN * 8)
+
 static DEFINE_MUTEX(plxx_lock);
 
 struct plxx_data 
@@ -46,6 +48,7 @@ struct plxx_data
   struct memory_accessor*  seeprom_macc;            // I2C SEEPROM accessor
   u32                      index;                   // Plugin index
   u32                      sel_gpio;                // Gpio index to select the plugin
+  u32                      installed;               // Indicates if the plugin is physically installed
   u8                       eeprom[SEE_FACTORYSIZE]; // Image of the I2C SEEPROM contents of the plugin
 };
 
@@ -129,6 +132,16 @@ static int hrs_parse_dt(struct device *dev, struct hrs_data *data)
 /*
  * sysfs interface 
  */
+static ssize_t show_installed(struct device *dev, struct device_attribute *attr, char *buf)
+{
+  u8 tmp;
+  struct plxx_data *data = dev_get_drvdata(dev);
+  mutex_lock(&plxx_lock);
+  tmp = data->installed;
+  mutex_unlock(&plxx_lock);
+  return sprintf(buf, "%d\n",(u32)tmp);
+}
+
 static ssize_t show_hwcode(struct device *dev, struct device_attribute *attr, char *buf)
 {
   u8 tmp;
@@ -179,13 +192,44 @@ static ssize_t show_name(struct device *dev, struct device_attribute *attr, char
   return SEE_MODULENAMELEN;
 }
 
+/* The function bit area of the plugin is seen as a RO binary file, where the i-th byte represents the binary status (0|1) of the i-th bit of the 
+ * function bit area
+ */
+static ssize_t func_bit_area_read(struct file *filp, struct kobject *kobj, struct bin_attribute *attr, char *buf, loff_t off, size_t count)
+{
+  struct plxx_data *data = dev_get_drvdata(container_of(kobj, struct device, kobj));
+  int bitIndex;
+  int i;
+
+  if(count == 0)
+    return count;
+  
+  mutex_lock(&plxx_lock);
+  
+  if(count > (SEE_FUNCAREA_NBITS - off))
+    count = SEE_FUNCAREA_NBITS - off;
+  
+  for(i=0; i < count; i++)
+  {
+    bitIndex = off + i;
+    buf[i] = (data->eeprom[SEE_FUNCT_AREA_OFF + bitIndex/8] & (1 << (bitIndex & 7)))? 1 : 0;
+  }
+
+  mutex_unlock(&plxx_lock);
+  return count;
+}
+
+static DEVICE_ATTR(installed, S_IRUGO, show_installed, NULL);
 static DEVICE_ATTR(hwcode, S_IRUGO, show_hwcode, NULL);
 static DEVICE_ATTR(hwsubcode, S_IRUGO, show_hwsubcode, NULL);
 static DEVICE_ATTR(fpgacode, S_IRUGO, show_fpgacode, NULL);
 static DEVICE_ATTR(fpgasubcode, S_IRUGO, show_fpgasubcode, NULL);
 static DEVICE_ATTR(name, S_IRUGO, show_name, NULL);
 
+static BIN_ATTR_RO(func_bit_area, SEE_FUNCAREA_NBITS);
+
 static struct attribute *plxx_sysfs_attributes[] = {
+  &dev_attr_installed.attr,
   &dev_attr_name.attr,
   &dev_attr_hwcode.attr,
   &dev_attr_hwsubcode.attr,
@@ -194,9 +238,73 @@ static struct attribute *plxx_sysfs_attributes[] = {
   NULL
 };
 
-static const struct attribute_group plxx_attr_group = {
-  .attrs = plxx_sysfs_attributes,
+static struct bin_attribute *plxx_sysfs_bin_attrs[] = {
+  &bin_attr_func_bit_area,
+  NULL,
 };
+
+static const struct attribute_group plxx_attr_group = {
+  .attrs = plxx_sysfs_attributes,    //sysfs single entries
+  .bin_attrs = plxx_sysfs_bin_attrs, //sysfs binary file for the function bit area
+};
+
+/*
+ * Read and validate the whole plugin SEEPROM and update the plugin data structure accordingly
+ */
+static int UpdatePluginData(struct plxx_data *data)
+{
+  int ret = 0;
+  int n;
+  
+  struct memory_accessor* macc = data->seeprom_macc;  
+
+  mutex_lock(&plxx_lock);
+  gpio_set_value(data->sel_gpio, 1);                      //Select the plugin I2C bus
+  msleep(1);
+  n = macc->read(macc, data->eeprom, 0, SEE_FACTORYSIZE); //Try to read the SEEPROM 
+
+  if(n < SEE_FACTORYSIZE)  
+  {
+    ret = -ENODEV;                                        //Plugin not found
+    memset(data->eeprom, 0, SEE_FACTORYSIZE);
+    data->installed = 0;
+  }
+  else
+    data->installed = 1;
+  
+  gpio_set_value(data->sel_gpio, 0);                      //Deselect the plugin I2C bus
+
+  //If plugin found, now check if the seeprom contents are valid
+  if(ret==0)                                              
+  {
+    u8 chksum = 1;
+    int i;
+    bool eeprom_isvalid = true;
+    
+    for(i = SEE_CHKSM_START; i < SEE_FACTORYSIZE; i++)
+      chksum += data->eeprom[i];
+    chksum -= 0xaa;
+    
+    if(chksum != data->eeprom[SEE_CHKSM_START - 1])       //Checksum check
+      eeprom_isvalid = false;
+    
+    if(data->eeprom[0] != 0xaa)                           //Header check
+      eeprom_isvalid = false;
+			
+    if(data->eeprom[1] != 0x55)                           //Header check
+      eeprom_isvalid = false;
+     
+    if(data->eeprom[2] != 0x03)                           //Header check
+      eeprom_isvalid = false;
+    
+    if(eeprom_isvalid == false)
+    {                                                     //The plugin was detected bus has invalid SEEPROM contents ...
+      memset(data->eeprom, 0, SEE_FACTORYSIZE);
+    }
+  }
+  mutex_unlock(&plxx_lock);
+  return ret;
+}
 
 /*
  * Probe and remove functions
@@ -216,12 +324,17 @@ static int plxx_probe(struct platform_device *pdev)
   dev_set_drvdata(&pdev->dev, data);
 
   res = plxx_parse_dt(&pdev->dev, data);
-  if (res) {
+  if (res) 
+  {
     dev_err(&pdev->dev, "Could not find valid DT data.\n");
     goto plxx_error1;
   }
 
-  //TODO: Read plugin seeprom. Probe fails if no seeprom found
+  //Detect the plugin module and read plugin seeprom
+  if( UpdatePluginData(data))
+  {
+    dev_warn(&pdev->dev, "Plugin %d not installed\n",data->index);
+  }
   
   // Create sysfs entry
   res = sysfs_create_group(&pdev->dev.kobj, &plxx_attr_group);
