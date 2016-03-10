@@ -141,6 +141,7 @@
 #define SEE_XILCODE_OFF    29          /* XIL code    */
 #define SEE_XILSUBCODE_OFF 30          /* XIL subcode */
 #define SEE_FUNCT_AREA_OFF 36          /* Function Area (bit-wide) */
-#define SEE_FACTORYSIZE	   64		   /* Length of the factory section */
+#define SEE_FACTORYSIZE	   64          /* Length of the factory section */
+#define SEE_MODULENAMELEN  16          /* Length of module name field */
 
 #endif /* _I2CSEEPROMFACTORY */
