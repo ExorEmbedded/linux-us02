@@ -151,6 +151,39 @@
 	  rtcnvram = <&m41t83>;
 	  status = "okay";
 	};
+
+	plxx0: plugin0 {
+	  compatible = "exor,plxx_manager";
+	  eeprom = <&plxxseeprom>;
+	  sel-gpio = <&porta 26 0>;
+	  index = <0>;
+	  status = "okay";
+	};
+
+	plxx1: plugin1 {
+	  compatible = "exor,plxx_manager";
+	  eeprom = <&plxxseeprom>;
+	  sel-gpio = <&porta 18 0>;
+	  index = <1>;
+	  status = "okay";
+	};
+
+	plxx2: plugin2 {
+	  compatible = "exor,plxx_manager";
+	  eeprom = <&plxxseeprom>;
+	  sel-gpio = <&porta 15 0>;
+	  index = <2>;
+	  status = "okay";
+	};
+
+	plxx3: plugin3 {
+	  compatible = "exor,plxx_manager";
+	  eeprom = <&plxxseeprom>;
+	  sel-gpio = <&portc 7 0>;
+	  index = <3>;
+	  status = "okay";
+	};
+
 };
 
 &gmac0 {
@@ -204,6 +237,11 @@
 	seeprom2:seeprom1@56 {
 		compatible = "atmel,24c02";
 		reg = <0x56>;
+	};
+
+	plxxseeprom:seeprom1@57 {
+		compatible = "atmel,24c02";
+		reg = <0x57>;
 	};
 	
 	m41t83:m41t83@68 {

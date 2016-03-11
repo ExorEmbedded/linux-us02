@@ -50,7 +50,10 @@ struct plxx_data
   u32                      sel_gpio;                // Gpio index to select the plugin
   u32                      installed;               // Indicates if the plugin is physically installed
   u8                       eeprom[SEE_FACTORYSIZE]; // Image of the I2C SEEPROM contents of the plugin
+  bool                     f_updated;               // Flag indicating if datas for the current plugin were still taken
 };
+
+static int UpdatePluginData(struct plxx_data *data);
 
 /*
  * static helper function for parsing the DTB tree
@@ -137,6 +140,11 @@ static ssize_t show_installed(struct device *dev, struct device_attribute *attr,
   u8 tmp;
   struct plxx_data *data = dev_get_drvdata(dev);
   mutex_lock(&plxx_lock);
+  if(!data->f_updated)
+  {
+    UpdatePluginData(data);
+    data->f_updated = true;
+  }
   tmp = data->installed;
   mutex_unlock(&plxx_lock);
   return sprintf(buf, "%d\n",(u32)tmp);
@@ -147,6 +155,11 @@ static ssize_t show_hwcode(struct device *dev, struct device_attribute *attr, ch
   u8 tmp;
   struct plxx_data *data = dev_get_drvdata(dev);
   mutex_lock(&plxx_lock);
+  if(!data->f_updated)
+  {
+    UpdatePluginData(data);
+    data->f_updated = true;
+  }
   tmp = data->eeprom[SEE_CODE_OFF];
   mutex_unlock(&plxx_lock);
   return sprintf(buf, "%d\n",(u32)tmp);
@@ -157,6 +170,11 @@ static ssize_t show_hwsubcode(struct device *dev, struct device_attribute *attr,
   u8 tmp;
   struct plxx_data *data = dev_get_drvdata(dev);
   mutex_lock(&plxx_lock);
+  if(!data->f_updated)
+  {
+    UpdatePluginData(data);
+    data->f_updated = true;
+  }
   tmp = data->eeprom[SEE_SUBCODE_OFF];
   mutex_unlock(&plxx_lock);
   return sprintf(buf, "%d\n",(u32)tmp);
@@ -167,6 +185,11 @@ static ssize_t show_fpgacode(struct device *dev, struct device_attribute *attr, 
   u8 tmp;
   struct plxx_data *data = dev_get_drvdata(dev);
   mutex_lock(&plxx_lock);
+  if(!data->f_updated)
+  {
+    UpdatePluginData(data);
+    data->f_updated = true;
+  }
   tmp = data->eeprom[SEE_XILCODE_OFF];
   mutex_unlock(&plxx_lock);
   return sprintf(buf, "%d\n",(u32)tmp);
@@ -177,6 +200,11 @@ static ssize_t show_fpgasubcode(struct device *dev, struct device_attribute *att
   u8 tmp;
   struct plxx_data *data = dev_get_drvdata(dev);
   mutex_lock(&plxx_lock);
+  if(!data->f_updated)
+  {
+    UpdatePluginData(data);
+    data->f_updated = true;
+  }
   tmp = data->eeprom[SEE_XILSUBCODE_OFF];
   mutex_unlock(&plxx_lock);
   return sprintf(buf, "%d\n",(u32)tmp);
@@ -184,12 +212,18 @@ static ssize_t show_fpgasubcode(struct device *dev, struct device_attribute *att
 
 static ssize_t show_name(struct device *dev, struct device_attribute *attr, char *buf)
 {
+  u8 tmp[SEE_MODULENAMELEN+1];
   struct plxx_data *data = dev_get_drvdata(dev);
   mutex_lock(&plxx_lock);
-  memcpy(buf, &data->eeprom[SEE_NAME_OFF], SEE_MODULENAMELEN);
-  buf[SEE_MODULENAMELEN-1]=0;
+  if(!data->f_updated)
+  {
+    UpdatePluginData(data);
+    data->f_updated = true;
+  }
+  memcpy(tmp, &data->eeprom[SEE_NAME_OFF], SEE_MODULENAMELEN);
+  tmp[SEE_MODULENAMELEN]=0;
   mutex_unlock(&plxx_lock);
-  return SEE_MODULENAMELEN;
+  return sprintf(buf, "%s\n",tmp);
 }
 
 /* The function bit area of the plugin is seen as a RO binary file, where the i-th byte represents the binary status (0|1) of the i-th bit of the 
@@ -205,6 +239,11 @@ static ssize_t func_bit_area_read(struct file *filp, struct kobject *kobj, struc
     return count;
   
   mutex_lock(&plxx_lock);
+  if(!data->f_updated)
+  {
+    UpdatePluginData(data);
+    data->f_updated = true;
+  }
   
   if(count > (SEE_FUNCAREA_NBITS - off))
     count = SEE_FUNCAREA_NBITS - off;
@@ -255,17 +294,15 @@ static int UpdatePluginData(struct plxx_data *data)
 {
   int ret = 0;
   int n;
-  
   struct memory_accessor* macc = data->seeprom_macc;  
 
-  mutex_lock(&plxx_lock);
   gpio_set_value(data->sel_gpio, 1);                      //Select the plugin I2C bus
   msleep(1);
   n = macc->read(macc, data->eeprom, 0, SEE_FACTORYSIZE); //Try to read the SEEPROM 
 
   if(n < SEE_FACTORYSIZE)  
   {
-    ret = -ENODEV;                                        //Plugin not found
+    ret = -1;                                        //Plugin not found
     memset(data->eeprom, 0, SEE_FACTORYSIZE);
     data->installed = 0;
   }
@@ -302,7 +339,6 @@ static int UpdatePluginData(struct plxx_data *data)
       memset(data->eeprom, 0, SEE_FACTORYSIZE);
     }
   }
-  mutex_unlock(&plxx_lock);
   return ret;
 }
 
@@ -330,11 +366,7 @@ static int plxx_probe(struct platform_device *pdev)
     goto plxx_error1;
   }
 
-  //Detect the plugin module and read plugin seeprom
-  if( UpdatePluginData(data))
-  {
-    dev_warn(&pdev->dev, "Plugin %d not installed\n",data->index);
-  }
+  data->f_updated = false;
   
   // Create sysfs entry
   res = sysfs_create_group(&pdev->dev.kobj, &plxx_attr_group);
