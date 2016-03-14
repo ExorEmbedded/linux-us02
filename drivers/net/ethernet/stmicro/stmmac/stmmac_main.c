@@ -2919,6 +2919,13 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
 		pr_err("%s: ERROR %i registering the device\n", __func__, ret);
 		goto error_netdev_register;
 	}
+	
+	/*
+	 * Initially notify the carrier down status.
+	 * This to avoid the upper levels (ethtool) to assume the eth intf. to be up in the
+	 * early stages of bootup, when it is not available yet.
+	 */
+	netif_carrier_off(ndev);
 
 	/* If a specific clk_csr value is passed from the platform
 	 * this means that the CSR Clock Range selection cannot be
