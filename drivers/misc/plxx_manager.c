@@ -46,6 +46,8 @@ struct plxx_data
 {
   struct i2c_client*       seeprom_client;
   struct memory_accessor*  seeprom_macc;            // I2C SEEPROM accessor
+  struct i2c_client*       ioexp_client;
+  struct memory_accessor*  ioexp_macc;              // I2C IO expander accessor
   u32                      index;                   // Plugin index
   u32                      sel_gpio;                // Gpio index to select the plugin
   u32                      installed;               // Indicates if the plugin is physically installed
@@ -63,7 +65,9 @@ static int plxx_parse_dt(struct device *dev, struct plxx_data *data)
 {
   struct device_node* node = dev->of_node;
   struct device_node* eeprom_node;
+  struct device_node* ioexp_node;
   u32                 eeprom_handle;
+  u32                 ioexp_handle;
   int                 ret;
 
   /* Parse the DT to find the I2C SEEPROM bindings*/
@@ -97,6 +101,42 @@ static int plxx_parse_dt(struct device *dev, struct plxx_data *data)
   /* And now get the I2C SEEPROM memory accessor */
   data->seeprom_macc = i2c_eeprom_get_memory_accessor(data->seeprom_client);
   if (IS_ERR_OR_NULL(data->seeprom_macc)) 
+  {
+    dev_err(dev, "Failed to get memory accessor\n");
+    return -ENODEV;
+  }
+
+  /* Parse the DT to find the I/O expander bindings*/
+  ret = of_property_read_u32(node, "ioexp", &ioexp_handle);
+  if (ret != 0) 
+  {
+    dev_err(dev, "Failed to locate ioexp\n");
+    return -ENODEV;
+  }
+
+  ioexp_node = of_find_node_by_phandle(ioexp_handle);
+  if (ioexp_node == NULL) 
+  {
+    dev_err(dev, "Failed to find ioexp node\n");
+    return -ENODEV;
+  }
+
+  data->ioexp_client = of_find_i2c_device_by_node(ioexp_node);
+  if (data->ioexp_client == NULL) 
+  {
+    dev_err(dev, "Failed to find i2c client\n");
+    of_node_put(ioexp_node);
+    return -EPROBE_DEFER;
+  }
+  
+  /* release ref to the node and inc reference to the I2C client used */
+  of_node_put(ioexp_node);
+  ioexp_node = NULL;
+  i2c_use_client(data->ioexp_client);
+  
+  /* And now get the I2C SEEPROM memory accessor */
+  data->ioexp_macc = i2c_eeprom_get_memory_accessor(data->ioexp_client);
+  if (IS_ERR_OR_NULL(data->ioexp_macc)) 
   {
     dev_err(dev, "Failed to get memory accessor\n");
     return -ENODEV;
@@ -295,6 +335,7 @@ static int UpdatePluginData(struct plxx_data *data)
   int ret = 0;
   int n;
   struct memory_accessor* macc = data->seeprom_macc;  
+  struct memory_accessor* ioexp_macc = data->ioexp_macc;  
 
   gpio_set_value(data->sel_gpio, 1);                      //Select the plugin I2C bus
   msleep(1);
@@ -309,8 +350,6 @@ static int UpdatePluginData(struct plxx_data *data)
   else
     data->installed = 1;
   
-  gpio_set_value(data->sel_gpio, 0);                      //Deselect the plugin I2C bus
-
   //If plugin found, now check if the seeprom contents are valid
   if(ret==0)                                              
   {
@@ -338,7 +377,19 @@ static int UpdatePluginData(struct plxx_data *data)
     {                                                     //The plugin was detected bus has invalid SEEPROM contents ...
       memset(data->eeprom, 0, SEE_FACTORYSIZE);
     }
+    
+    // If we have a RS485/422 plugin module (bit #3 in func. area) set it to full duplex
+    if(data->eeprom[SEE_FUNCT_AREA_OFF] & (0x01 << RS422_485_IF_FLAG))
+    {
+      u8 tmp;
+      tmp=0x0e;
+      ioexp_macc->write(ioexp_macc, &tmp, 3, sizeof(u8));
+      msleep(1);
+      tmp=0x00;
+      ioexp_macc->write(ioexp_macc, &tmp, 1, sizeof(u8));
+    }
   }
+  gpio_set_value(data->sel_gpio, 0);                      //Deselect the plugin I2C bus
   return ret;
 }
 
