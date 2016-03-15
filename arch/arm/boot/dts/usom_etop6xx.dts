@@ -67,6 +67,10 @@
 		ethernet1 = &gmac1;
 		mmc0 = &ulti_sdc_0;
 		mmc1 = &emmc;
+		serial0 = &uart0;
+		serial1 = &pluart1;
+		serial2 = &pluart2;
+		serial3 = &uart1;
 	};
 
 	regulator_3_3v: 3-3-v-regulator {
@@ -188,6 +192,36 @@
 	  status = "okay";
 	};
 
+	pluart1: pluart@0xff200800 {
+		compatible = "altr,16550-FIFO128";
+		reg = <0xff203000 0x200>;
+		clock-frequency = <50000000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 40 4>;
+		reg-shift = <2>;
+		reg-io-width = <4>;
+		status = "okay";
+		mode-gpio = <&agpio0 12 0>;
+		rts-gpio = <&agpio0 13 0>;
+		rxen-gpio = <&agpio0 14 0>;
+		rs485-rts-active-high;
+	};
+
+	pluart2: pluart@0xff200a00 {
+		compatible = "altr,16550-FIFO128";
+		reg = <0xff203200 0x200>;
+		clock-frequency = <50000000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 41 4>;
+		reg-shift = <2>;
+		reg-io-width = <4>;
+		status = "okay";
+		mode-gpio = <&agpio0 15 0>;
+		rts-gpio = <&agpio0 16 0>;
+		rxen-gpio = <&agpio0 17 0>;
+		rs485-rts-active-high;
+	};
+	
 };
 
 &gmac0 {

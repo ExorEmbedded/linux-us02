@@ -190,6 +190,7 @@ static int of_platform_serial_probe(struct platform_device *ofdev)
 		memset(&port8250, 0, sizeof(port8250));
 		port.type = port_type;
 		port8250.port = port;
+		port8250.port.rs485_config = serial_8250_config_rs485;
 
 		if (port.fifosize)
 			port8250.capabilities = UART_CAP_FIFO;
@@ -197,6 +198,10 @@ static int of_platform_serial_probe(struct platform_device *ofdev)
 		if (of_property_read_bool(ofdev->dev.of_node,
 					  "auto-flow-control"))
 			port8250.capabilities |= UART_CAP_AFE;
+		
+		ret = serial_8250_probe_rs485(&port8250, ofdev->dev.of_node);
+		if(ret)
+		  goto out;
 
 		ret = serial8250_register_8250_port(&port8250);
 		break;
