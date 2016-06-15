@@ -119,6 +119,14 @@
 	};
 };
 
+&can0 {
+	status = "okay";
+	};
+
+&can1 {
+	status = "okay";
+	};
+
 &gmac0 {
 	phy-mode = "mii";
 	snps,phy-addr = <0x00>;
