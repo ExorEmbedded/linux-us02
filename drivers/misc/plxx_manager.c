@@ -298,6 +298,35 @@ static ssize_t func_bit_area_read(struct file *filp, struct kobject *kobj, struc
   return count;
 }
 
+/* Show the eeprom contents of the plugin as a RO file 
+ */
+static ssize_t eeprom_read(struct file *filp, struct kobject *kobj, struct bin_attribute *attr, char *buf, loff_t off, size_t count)
+{
+  struct plxx_data *data = dev_get_drvdata(container_of(kobj, struct device, kobj));
+  int i;
+
+  if(count == 0)
+    return count;
+  
+  mutex_lock(&plxx_lock);
+  if(!data->f_updated)
+  {
+    UpdatePluginData(data);
+    data->f_updated = true;
+  }
+  
+  if(count > (256 - off))
+    count = 256 - off;
+  
+  for(i=0; i < count; i++)
+  {
+    buf[i] = data->eeprom[i];
+  }
+
+  mutex_unlock(&plxx_lock);
+  return count;
+}
+
 static DEVICE_ATTR(installed, S_IRUGO, show_installed, NULL);
 static DEVICE_ATTR(hwcode, S_IRUGO, show_hwcode, NULL);
 static DEVICE_ATTR(hwsubcode, S_IRUGO, show_hwsubcode, NULL);
@@ -306,6 +335,7 @@ static DEVICE_ATTR(fpgasubcode, S_IRUGO, show_fpgasubcode, NULL);
 static DEVICE_ATTR(name, S_IRUGO, show_name, NULL);
 
 static BIN_ATTR_RO(func_bit_area, SEE_FUNCAREA_NBITS);
+static BIN_ATTR_RO(eeprom, 256);
 
 static struct attribute *plxx_sysfs_attributes[] = {
   &dev_attr_installed.attr,
@@ -319,6 +349,7 @@ static struct attribute *plxx_sysfs_attributes[] = {
 
 static struct bin_attribute *plxx_sysfs_bin_attrs[] = {
   &bin_attr_func_bit_area,
+  &bin_attr_eeprom,
   NULL,
 };
 
