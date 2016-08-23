@@ -39,6 +39,7 @@
 #include <dt-bindings/gpio/gpio.h>
 
 #define SEE_FUNCAREA_NBITS (SEE_FUNCAREALEN * 8)
+#define FULLEEPROMSIZE (256)
 
 static DEFINE_MUTEX(plxx_lock);
 
@@ -51,7 +52,7 @@ struct plxx_data
   u32                      index;                   // Plugin index
   u32                      sel_gpio;                // Gpio index to select the plugin
   u32                      installed;               // Indicates if the plugin is physically installed
-  u8                       eeprom[SEE_FACTORYSIZE]; // Image of the I2C SEEPROM contents of the plugin
+  u8                       eeprom[FULLEEPROMSIZE];  // Image of the I2C SEEPROM contents of the plugin
   bool                     f_updated;               // Flag indicating if datas for the current plugin were still taken
 };
 
@@ -298,7 +299,7 @@ static ssize_t func_bit_area_read(struct file *filp, struct kobject *kobj, struc
   return count;
 }
 
-/* Show the eeprom contents of the plugin as a RO file 
+/* Show the eeprom contents of the plugin as a raw file 
  */
 static ssize_t eeprom_read(struct file *filp, struct kobject *kobj, struct bin_attribute *attr, char *buf, loff_t off, size_t count)
 {
@@ -315,8 +316,8 @@ static ssize_t eeprom_read(struct file *filp, struct kobject *kobj, struct bin_a
     data->f_updated = true;
   }
   
-  if(count > (256 - off))
-    count = 256 - off;
+  if(count > (FULLEEPROMSIZE - off))
+    count = FULLEEPROMSIZE - off;
   
   for(i=0; i < count; i++)
   {
@@ -327,6 +328,44 @@ static ssize_t eeprom_read(struct file *filp, struct kobject *kobj, struct bin_a
   return count;
 }
 
+/* Write the eeprom contents of the plugin as a raw file 
+ */
+static ssize_t eeprom_write(struct file *filp, struct kobject *kobj, struct bin_attribute *attr, char *buf, loff_t off, size_t count)
+{
+  struct plxx_data *data = dev_get_drvdata(container_of(kobj, struct device, kobj));
+  struct memory_accessor* macc = data->seeprom_macc;  
+  int i;
+
+  if(count == 0)
+    return count;
+  
+  if(off >= FULLEEPROMSIZE)
+    return 0;
+  
+  mutex_lock(&plxx_lock);
+  if(!data->f_updated)
+  {
+    UpdatePluginData(data);
+    data->f_updated = true;
+  }
+  
+  if(count > (FULLEEPROMSIZE - off))
+    count = FULLEEPROMSIZE - off;
+ 
+  gpio_set_value(data->sel_gpio, 1);                      //Select the plugin I2C bus
+  msleep(1);
+  
+  i = macc->write(macc, buf, off, count); 
+  msleep(1);
+  
+  macc->read(macc, &data->eeprom[off], off, count); 
+  msleep(1);
+  
+  gpio_set_value(data->sel_gpio, 0);                      //Select the plugin I2C bus
+  mutex_unlock(&plxx_lock);
+  return i;
+}
+
 static DEVICE_ATTR(installed, S_IRUGO, show_installed, NULL);
 static DEVICE_ATTR(hwcode, S_IRUGO, show_hwcode, NULL);
 static DEVICE_ATTR(hwsubcode, S_IRUGO, show_hwsubcode, NULL);
@@ -335,7 +374,7 @@ static DEVICE_ATTR(fpgasubcode, S_IRUGO, show_fpgasubcode, NULL);
 static DEVICE_ATTR(name, S_IRUGO, show_name, NULL);
 
 static BIN_ATTR_RO(func_bit_area, SEE_FUNCAREA_NBITS);
-static BIN_ATTR_RO(eeprom, 256);
+static BIN_ATTR_RW(eeprom, FULLEEPROMSIZE);
 
 static struct attribute *plxx_sysfs_attributes[] = {
   &dev_attr_installed.attr,
@@ -370,12 +409,12 @@ static int UpdatePluginData(struct plxx_data *data)
 
   gpio_set_value(data->sel_gpio, 1);                      //Select the plugin I2C bus
   msleep(1);
-  n = macc->read(macc, data->eeprom, 0, SEE_FACTORYSIZE); //Try to read the SEEPROM 
+  n = macc->read(macc, data->eeprom, 0, FULLEEPROMSIZE); //Try to read the SEEPROM 
 
-  if(n < SEE_FACTORYSIZE)  
+  if(n < FULLEEPROMSIZE)  
   {
     ret = -1;                                        //Plugin not found
-    memset(data->eeprom, 0, SEE_FACTORYSIZE);
+    memset(data->eeprom, 0, FULLEEPROMSIZE);
     data->installed = 0;
   }
   else
