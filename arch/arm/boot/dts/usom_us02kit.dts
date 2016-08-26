@@ -65,8 +65,8 @@
 	aliases {
 		ethernet0 = &gmac0;
 		ethernet1 = &gmac1;
-		mmc0 = &ulti_sdc_0;
-		mmc1 = &emmc;
+		mmc1 = &ulti_sdc_0; /* NOTE: This is the mmc mapping required for the evaluation kit */
+		mmc0 = &emmc;       /* NOTE: This is the emmc mapping required for the evaluation kit */
 		serial0 = &uart0;
 		serial1 = &pluart1;
 		serial2 = &pluart2;
@@ -86,11 +86,10 @@
 		interrupt-parent = <&intc>;
 		interrupts = < 0 43 4 >;
 	}; //end ulti_sdc@0x100030000 (ulti_sdc_0)
-
-	altevcfb_0: altevcfb@0xff200000 {
-	  compatible = "exor,altevcfb";
-	  reg = <0xff200000 0x00001fff>;
-	  initial-brightness = <25>;
+	
+	ultievcfb_0: ultievcfb@0xff200000 {
+	  compatible = "exor,ultievcfb";
+	  reg = <0xff200000 0x00000fff>;
 	  status = "okay";
 	};
 	
@@ -139,7 +138,7 @@
 
 	ultibuzz0: ultibuzz@0xff202000 {
 		compatible = "exor,ultibuzz";
-		reg = <0xff202000 0x20>;
+		reg = <0xff210020 0x20>;
 		ref-freq=<25600000>;
 		#pwm-cells = <3>;
 	};
@@ -194,7 +193,7 @@
 
 	pluart1: pluart@0xff200800 {
 		compatible = "altr,16550-FIFO128";
-		reg = <0xff203000 0x200>;
+		reg = <0xff220000 0x200>;
 		clock-frequency = <50000000>;
 		interrupt-parent = <&intc>;
 		interrupts = <0 40 4>;
@@ -209,7 +208,7 @@
 
 	pluart2: pluart@0xff200a00 {
 		compatible = "altr,16550-FIFO128";
-		reg = <0xff203200 0x200>;
+		reg = <0xff220200 0x200>;
 		clock-frequency = <50000000>;
 		interrupt-parent = <&intc>;
 		interrupts = <0 41 4>;
@@ -298,6 +297,19 @@
 	num-cs = <4>;
 	bus-num = <0>;
 	cs-gpios = <&agpio0 3 0>, <&agpio0 4 0>, <&agpio0 5 0>, <&agpio0 6 0>;
+
+	spidev0: spi0@0 {
+		compatible = "spidev";
+		reg = <0>;
+		spi-max-frequency = <3000000>;
+	};
+
+	spidev1: spi0@1 {
+		compatible = "spidev";
+		reg = <1>;
+		spi-max-frequency = <3000000>;
+	};
+
 	fram: at25@2 {
 		compatible = "atmel,at25", "st,m95256";
 		reg = <2>;
@@ -305,6 +317,25 @@
 		pagesize = <64>;
 		size = <65536>;
 		address-width = <16>;
+	};
+};
+
+&spi1 {
+	status = "okay";
+	num-cs = <2>;
+	bus-num = <1>;
+	cs-gpios = <&agpio0 7 0>, <&agpio0 8 0>;
+
+	spidev2: spi1@0 {
+		compatible = "spidev";
+		reg = <0>;
+		spi-max-frequency = <3000000>;
+	};
+
+	spidev3: spi1@1 {
+		compatible = "spidev";
+		reg = <1>;
+		spi-max-frequency = <3000000>;
 	};
 };
 
