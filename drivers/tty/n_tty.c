@@ -1648,7 +1648,7 @@ static void __receive_buf(struct tty_struct *tty, const unsigned char *cp,
 			n_tty_receive_buf_standard(tty, cp, fp, count);
 
 		flush_echoes(tty);
-		if (tty->ops->flush_chars)
+		if (tty->ops->flush_chars && !I_PARMRK(tty))
 			tty->ops->flush_chars(tty);
 	}
 
