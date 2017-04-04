@@ -1242,8 +1242,6 @@ CONFIG_ICPLUS_PHY=y
 # CONFIG_MDIO_BUS_MUX_MMIOREG is not set
 # CONFIG_MDIO_BCM_UNIMAC is not set
 # CONFIG_MICREL_KS8995MA is not set
-# CONFIG_PPP is not set
-# CONFIG_SLIP is not set
 CONFIG_USB_NET_DRIVERS=y
 # CONFIG_USB_CATC is not set
 # CONFIG_USB_KAWETH is not set
@@ -1255,6 +1253,21 @@ CONFIG_USB_NET_DRIVERS=y
 CONFIG_WLAN=y
 # CONFIG_HOSTAP is not set
 # CONFIG_WL_TI is not set
+
+#
+# PPP support 
+#
+CONFIG_PPP=m
+# CONFIG_PPP_BSDCOMP is not set
+CONFIG_PPP_DEFLATE=m
+# CONFIG_PPP_FILTER is not set
+# CONFIG_PPP_MPPE is not set
+# CONFIG_PPP_MULTILINK is not set
+# CONFIG_PPPOE is not set
+CONFIG_PPP_ASYNC=m
+CONFIG_PPP_SYNC_TTY=m
+# CONFIG_SLIP is not set
+CONFIG_SLHC=m
 
 #
 # Enable WiMAX (Networking options) to see the WiMAX drivers
