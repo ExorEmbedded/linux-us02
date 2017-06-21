@@ -506,6 +506,8 @@ dtb-$(CONFIG_ARCH_SOCFPGA) += \
 	socfpga_cyclone5_exor.dtb \
 	usom_us02kit.dtb \
 	usom_etop6xx.dtb \
+	usom_scame.dtb \
+	usom_lju.dtb \
 	socfpga_vt.dtb
 dtb-$(CONFIG_ARCH_SPEAR13XX) += \
 	spear1310-evb.dtb \

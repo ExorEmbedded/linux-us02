@@ -1,0 +1,602 @@
+/*
+ * Copyright Altera Corporation (C) 2015. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/dts-v1/;
+/* First 4KB has trampoline code for secondary cores. */
+/memreserve/ 0x00000000 0x0001000;
+#include "socfpga.dtsi"
+
+/ {
+	soc {
+		clkmgr@ffd04000 {
+			clocks {
+				osc1 {
+					clock-frequency = <25000000>;
+				};
+			};
+		};
+
+		emmc: dwmmc0@ff704000 {
+			num-slots = <1>;
+			broken-cd;
+			bus-width = <4>;
+			cap-mmc-highspeed;
+			cap-sd-highspeed;
+		};
+
+		sysmgr@ffd08000 {
+			cpu1-start-addr = <0xffd080c4>;
+		};
+
+		scame {
+			compatible = "scame";
+			interrupt-parent = <&intc>;
+			interrupts = <0 40 1>, <0 41 1>, <0 42 1>, <0 45 1>, <0 46 1>, <0 47 1>;
+		};
+	};
+};
+
+&watchdog0 {
+	status = "okay";
+};
+
+
+/ {
+	model = "Altera SOCFPGA Cyclone V";
+	compatible = "altr,socfpga-cyclone5", "altr,socfpga";
+
+	chosen {
+		bootargs = "console=ttyS0,57600 hw_dispid=45";
+	};
+
+	memory {
+		name = "memory";
+		device_type = "memory";
+		reg = <0x0 0x40000000>; /* 1GB */
+	};
+
+	aliases {
+		ethernet0 = &gmac0;
+		ethernet1 = &gmac1;
+		mmc0 = &emmc;
+		mmc1 = &ulti_sdc_0;
+		serial0 = &uart0;
+		/*serial1 = &uart1;*/
+	};
+
+	regulator_3_3v: 3-3-v-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "3.3V";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
+	ulti_sdc_0: ulti_sdc@0xFF230000 {
+		compatible = "EXOR,ulti_sdc-13.1", "EXOR,ulti_sdc-1.0", "exor,ulti_sdc-1.0", "sdhci-ultimmc";
+		reg = < 0xFF230000 0x0000ffff >;
+		interrupt-parent = <&intc>;
+		interrupts = < 0 43 4 >;
+	}; //end ulti_sdc@0x100030000 (ulti_sdc_0)
+
+	altevcfb_0: altevcfb@0xff200000 {
+		compatible = "exor,ultievcfb";
+		reg = <0xff200000 0x00001fff>;
+		initial-brightness = <25>;
+		status = "okay";
+	};
+	
+	ethernet@ff702000 {
+		phy-mode = "mii";
+		phy-addr = <0x05>;
+		status = "okay";
+		tx-fifo-depth = <16384>;
+		rx-fifo-depth = <16384>;
+		reset0 = <&agpio0 0 0>;
+		reset1 = <&agpio0 1 0>;
+	};
+
+	ethernet@ff700000 {
+		phy-mode = "mii";
+		phy-addr = <0x07>;
+		status = "okay";
+	};
+		
+	agpio0: gpio@0xff210010 {
+		compatible = "altr,pio-1.0";
+		reg = <0xff210010 0x10>;
+		interrupts = <0 44 4>;
+		width=<32>;
+		altr,interrupt_type = < 4 >;
+		#gpio-cells = <2>;
+		gpio-controller;
+		#interrupt-cells = <1>;
+		interrupt-controller;
+	};	
+
+	leds { 
+		compatible = "gpio-leds";
+		status = "okay";
+
+		led@1 {
+			label = "us02:dl:usr0";
+			gpios = <&porta 16 0>;
+			default-state = "on";
+		};
+
+		led@2 {
+			label = "us02:fault:usr0";
+			gpios = <&porta 14 0>;
+			default-state = "off";
+		};
+	};
+
+	/* ULTIBUZZ no longer required
+	ultibuzz0: ultibuzz@0xff202000 {
+		compatible = "exor,ultibuzz";
+		reg = <0xff202000 0x20>;
+		ref-freq=<25600000>;
+		#pwm-cells = <3>;
+	};
+
+	beeper {
+		compatible = "pwm-beeper";
+		pwms = <&ultibuzz0 0 50000 0>;
+	};
+	*/
+
+	working_hours {
+		compatible = "working_hours";
+		eeprom = <&seeprom0>;
+		rtcnvram = <&m41t83>;
+		status = "okay";
+	};
+
+	/*
+	plxx0: plugin0 {
+		compatible = "exor,plxx_manager";
+		eeprom = <&plxxseeprom>;
+		ioexp = <&plxxioexp>;
+		sel-gpio = <&porta 26 0>;
+		index = <0>;
+		status = "okay";
+	};
+
+	plxx1: plugin1 {
+		compatible = "exor,plxx_manager";
+		eeprom = <&plxxseeprom>;
+		ioexp = <&plxxioexp>;
+		sel-gpio = <&porta 18 0>;
+		index = <1>;
+		status = "okay";
+	};
+
+	plxx2: plugin2 {
+		compatible = "exor,plxx_manager";
+		eeprom = <&plxxseeprom>;
+		ioexp = <&plxxioexp>;
+		sel-gpio = <&porta 15 0>;
+		index = <2>;
+		status = "okay";
+	};
+
+	plxx3: plugin3 {
+		compatible = "exor,plxx_manager";
+		eeprom = <&plxxseeprom>;
+		ioexp = <&plxxioexp>;
+		sel-gpio = <&portc 7 0>;
+		index = <3>;
+		status = "okay";
+	};
+	*/
+
+};
+
+&gmac0 {
+	phy-mode = "mii";
+	snps,phy-addr = <0x07>;
+	status = "okay";
+};
+
+&gmac1 {
+	phy-mode = "mii";
+	snps,phy-addr = <0x05>;
+	rxd0-skew-ps = <0>;
+	rxd0-skew-ps = <0>;
+	rxd1-skew-ps = <0>;
+	rxd2-skew-ps = <0>;
+	rxd3-skew-ps = <0>;
+	txen-skew-ps = <0>;
+	txc-skew-ps = <2600>;
+	rxdv-skew-ps = <0>;
+	rxc-skew-ps = <2000>;
+	snps,max-mtu = <3800>;
+	status = "okay";
+};
+
+&gpio0 {
+	status = "okay";
+};
+
+&gpio1 {
+	status = "okay";
+};
+
+&gpio2 {
+	status = "okay";
+};
+
+&i2c0 {
+	status = "okay";
+	speed-mode = <0>;
+
+	seeprom0:seeprom0@54 {
+		compatible = "atmel,24c02";
+		reg = <0x54>;
+	};
+
+	seeprom1:seeprom1@50 {
+		compatible = "atmel,24c02";
+		reg = <0x50>;
+	};
+
+	seeprom2:seeprom1@56 {
+		compatible = "atmel,24c02";
+		reg = <0x56>;
+	};
+
+	plxxseeprom:seeprom1@57 {
+		compatible = "atmel,24c02";
+		reg = <0x57>;
+	};
+
+	plxxioexp:ioexp1@41 {
+		compatible = "atmel,24c02";
+		reg = <0x41>;
+	};
+	
+	m41t83:m41t83@68 {
+		compatible = "stm,m41t83";
+		reg = <0x68>;
+	};
+
+	keyboard1:tca8418@34 {
+		compatible = "ti,tca8418";
+		reg = <0x34>;
+		
+		/*   the interrupt is specified as: 				*/
+		/*   The first cell is the GPIO number.				*/
+		/*   The second cell is used to specify flags:		*/
+		/*   bits[3:0] trigger type and level flags:		*/
+		/*       1 = low-to-high edge triggered.			*/
+		/*       2 = high-to-low edge triggered.			*/
+		/*       4 = active high level-sensitive.			*/
+		/*       8 = active low level-sensitive.			*/
+		/**/
+		interrupt-parent = <&intc>;
+		#interrupt-cells = <1>;
+		interrupt-controller;
+		interrupts = <0 48 2>; /* gpio2_7 high-to-low edge */
+		altr,interrupt_type = < 2 >;
+
+		keypad,num-rows = <6>;
+		keypad,num-columns = <4>;
+		linux,keymap = <
+			/* The 32-bit big endian cell is packed as: row << 24 | column << 16 | key-code */
+			0x00000042 /* SILENCE BUZZER (F8) */
+			0x00010002 /* KEY 1 */
+			0x00020007 /* KEY 6 */
+			0x00030067 /* KEY UP */
+
+			0x0100003D /* RESET (F3) */
+			0x01010003 /* KEY 2 */
+			0x01020008 /* KEY 7 */
+			0x0103006C /* KEY DOWN */
+
+			0x0200003E /* SCROLL (F4) */
+			0x02010004 /* KEY 3 */
+			0x02020009 /* KEY 8 */
+			0x0203006A /* KEY RIGHT */
+
+			0x0300003F /* SILENCE SOUNDERS (F5) */
+			0x03010005 /* KEY 4 */
+			0x0302000A /* KEY 9 */
+			0x03030069 /* KEY LEFT */
+
+			0x04000040 /* DELAY OVERRIDE (F6) */
+			0x04010006 /* KEY 5 */
+			0x0402000B /* KEY 0 */
+			0x0403003B /* F1 */
+			
+			0x05000041 /* EVACUATE (F7) */
+			0x05010001 /* KEY ESC */
+			0x0502001C /* KEY CR */
+			0x05030000 /* KEY NONE */
+		>;
+	};  
+
+	leds0:gpio@60 {
+		compatible = "nxp,pca9532";
+		gpio-controller;
+		#gpio-cells = <2>;
+		nxp,typecodes = <0x55555555>;
+		nxp,statecodes = <0x00000000>;		
+		reg = <0x60>;
+		
+		ld2 {
+			label = "LD2";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+
+		ld3 {
+			label = "LD3";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+	  
+		ld4 {
+			label = "LD4";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+
+		ld5 {
+			label = "LD5";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+
+		ld6 {
+			label = "LD6";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+
+		ld7 {
+			label = "LD7";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+
+		ld8 {
+			label = "LD8";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+
+		ld9 {
+			label = "LD9";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+
+		ld10 {
+			label = "LD10";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+
+		ld11 {
+			label = "LD11";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+
+		ld12 {
+			label = "LD12";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+
+		ld13 {
+			label = "LD13";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+
+		ld14 {
+			label = "LD14";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+
+		ld15 {
+			label = "LD15";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+
+		ld16 {
+			label = "LD16";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+
+		ld17 {
+			label = "LD17";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+	};  
+  
+  	leds1:gpio@61 {
+		compatible = "nxp,pca9532";
+		gpio-controller;
+		#gpio-cells = <2>;
+		reg = <0x61>;
+
+		ld18 {
+			label = "LD18";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+
+		ld19 {
+			label = "LD19";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+
+		ld20 {
+			label = "LD20";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+
+		ld21 {
+			label = "LD21";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+
+		ld22 {
+			label = "LD22";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+
+		ld23 {
+			label = "LD23";
+			type = < 0x01 >; /* PCA9532_TYPE_LED */
+			state = < 0x00 >; /* PCA9532_OFF */
+		};
+	};  
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <4>;
+	bus-num = <0>;
+	cs-gpios = <&agpio0 3 0>, <&agpio0 4 0>, <&agpio0 5 0>, <&agpio0 6 0>;
+
+	spidev0: spi0@0 {
+		compatible = "spidev";
+		reg = <0>;
+		spi-max-frequency = <3000000>;
+	};
+
+	spidev1: spi0@1 {
+		compatible = "spidev";
+		reg = <1>;
+		spi-max-frequency = <3000000>;
+	};
+
+	fram: at25@2 {
+		compatible = "atmel,at25", "st,m95256";
+		reg = <2>;
+		spi-max-frequency = <20000000>;
+		pagesize = <64>;
+		size = <65536>;
+		address-width = <16>;
+	};
+
+	mcp3204: mcp3204@3 {
+		compatible = "mcp3204";
+		reg = <3>;
+		spi-max-frequency = <3000000>;
+	};
+};
+
+&spi1 {
+	status = "okay";
+	num-cs = <3>;
+	bus-num = <1>;
+	cs-gpios = <&agpio0 7 0>, <&agpio0 8 0>, <&agpio0 11 0>;
+
+	spidev2: spi1@0 {
+		compatible = "spidev";
+		reg = <0>;
+		/*spi-cpol;*/
+		spi-cpha;
+		spi-max-frequency = <10000>;
+	};
+
+	spidev3: spi1@1 {
+		compatible = "spidev";
+		reg = <1>;
+		/*spi-cpol;*/
+		spi-cpha;
+		spi-max-frequency = <10000>;
+	};
+};
+
+&qspi {
+	status = "okay";
+	flash0: n25q256a@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "n25q256a";
+		reg = <0>;      /* chip select */
+		spi-max-frequency = <100000000>;
+		m25p,fast-read;
+		page-size = <256>; 
+		block-size = <16>; /* 2^16, 64KB */
+		read-delay = <4>;  /* delay value in read data capture register */
+		cdns,tshsl-ns = <50>;
+		cdns,tsd2d-ns = <50>;
+		cdns,tchsh-ns = <4>;
+		cdns,tslch-ns = <4>;
+
+		partition@qspi-fpga1 {
+		/* 10MB for raw FPGA1 image. */
+		label = "fpga1";
+		reg = <0x0 0xa00000>;
+		};
+
+		partition@qspi-fpga2 {
+		/* 10MB for raw FPGA2 image. */
+		label = "fpga2";
+		reg = <0xa00000 0xa00000>;
+		};
+	};
+};
+
+&uart0 {
+	status = "okay";
+	rts-gpio = <&porta 22 0>;
+	mode-gpio = <&porta 24 0>;
+	rxen-gpio = <&portb 23 0>;
+	rs485-rts-active-high;
+};
+
+&usb1 {
+	status = "okay";
+};
+
+&can0 {
+	status = "okay";
+};
+
+&can1 {
+	status = "okay";
+};
+
+&emmc {
+	vmmc-supply = <&regulator_3_3v>;
+	vqmmc-supply = <&regulator_3_3v>;
+
+	num-slots = <1>;
+	supports-highspeed;
+	broken-cd;
+	altr,dw-mshc-ciu-div = <3>;
+	altr,dw-mshc-sdr-timing = <0 3>;
+
+	slot@0 {
+		reg = <0>;
+		bus-width = <4>;
+	};
+};
+
