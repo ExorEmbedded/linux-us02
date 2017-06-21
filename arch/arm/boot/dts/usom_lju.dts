@@ -567,9 +567,9 @@
 &uart0 {
 	status = "okay";
 	rts-gpio = <&porta 22 0>;
-	mode-gpio = <&porta 24 0>;
-	rxen-gpio = <&portb 23 0>;
-	rs485-rts-active-high;
+	//mode-gpio = <&porta 24 0>;
+	//rxen-gpio = <&portb 23 0>;
+	//rs485-rts-active-high;
 };
 
 &usb1 {
