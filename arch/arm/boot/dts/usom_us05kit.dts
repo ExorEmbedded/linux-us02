@@ -63,8 +63,8 @@
 	};
 
 	aliases {
-		mmc1 = &ulti_sdc_0; /* NOTE: This is the mmc mapping required for the evaluation kit */
-		mmc0 = &emmc;       /* NOTE: This is the emmc mapping required for the evaluation kit */
+		mmc0 = &ulti_sdc_0;
+		mmc1 = &emmc;
 		serial0 = &uart0;
 		serial1 = &pluart1;
 		serial2 = &pluart2;
