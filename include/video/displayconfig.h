@@ -39,8 +39,39 @@
  * 1.4			SS              24.02.15    On displayconfog_rev2.3.3.xml we removed all ECO/LINUX displays; no allignement will be performed.
  *																			Added display code #52: for Altera kit, same code as #31 but MAX brightness=100% 
  *																			Changed on display code #47 .pclk_freq = 64000 (original 72000): otherwise it will not work on Altera kit
+ * 1.5			SS              13.04.15    Changed on display code #51 .pclk_freq = 12000 (original 9000): Linux driver is now generating 12MHz, please check OS driver 
+ *                                      in order to generate pclk freq lower than 12MHz with proper accurancy!
+ *																			As the eSMART04 has been certified with 12MHz pixel clock setting, this is kept also for future fixes into the OS driver.
+ * 1.6			GP              13.04.16    Added display code #55: Innolux G101ICE-L01 LVDS 24 bit 1280x800 for serie 700
  *
- * NEXT AVAILABLE DISPLAY CODE: 53
+ * 1.7			GP              23.05.16    Added display code #56: Innolux G156BGE-L01 LVDS 24 bit 1366x768 for serie 700
+ *                                                  Added display code #57: Innolux G215HVN01 LVDS 24 bit 1920x1080 for serie 700
+ *                                                  Added display code #58: DataImage 7" LVDS 24 bit 800x480 for serie 700
+ * 1.8	    SS  	   				07.11.2016  Alligned to displayconfig_rev2.5.xml:
+ *																			Inverted display clock edge for LVDS drivers wrongly set on next HDAxx carrier boards  
+ *																			HDA02A: display codes #36,38,39: inverted clock polarity   
+ *																			HDA05A: display codes #45 (OLD glass display): inverted clock polarity 
+ * 1.9	    GP  	   				02.02.2017  Added gamma correction for display codes #55 and #58, required tuning of min brite to allow 0,5cd/m2 on step0:
+ *																			display code #55: modified min brite from 1 to 10 (0,5cd/m2 for step0)
+ *																			display code #58: modified min brite from 10 to 20 (0,5cd/m2 for step0)
+ *1.10			SS							27.03.2017  Modified all display codes used by IMX.6 CPU (US03Ax) due to bug on LVDS clock (refer to unfuddle ticket #650).
+ *																			Display codes 55, 56, 57 and 58 HAVE TO BE USED only on IMX.6 panels!!!!
+ *																			display code #55: modified pixel clock from 0 to 1
+ *																			display code #56: modified pixel clock from 0 to 1
+ *																			display code #57: modified pixel clock from 0 to 1
+ *																			display code #58: modified pixel clock from 0 to 1; modified hs_w from 100 to 200 as per typical datasheet value (no visible effect)
+ *1.11			SS							20.04.2017  Added display code #59: FutureLabs  FLT-070D07-W0 800x480 High Brightness for WE16
+ *																			Added display code #60: CHIMEI TG070Y2-L01 800x480 for WE16 using both US01Ax and US03Ax
+ *1.12			SS							01.09.2017  Added display code #61: FutureLabs 1024x600 High Brightness for Jsmart07---Initial definition without any datasheet/spec
+ *1.13			SS							05.09.2017  Added display code #62: FutureLabs 1280x800 High Brightness for Jsmart10---Initial definition without any datasheet/spec
+ *1.14			SS							20.09.2017  Added display code #63: FutureLabs FLT-1001Q2ETTXNH01 1280x800 for serie 700 High Brightness 
+ *1.15			SS							30.10.2017  Added display code #64: Qitex QX-050WVGA0TLT00D 800x480 for ex705-rocktouch 
+ *1.16			SS							21.11.2017  Added display code #65: FutureLabs FLT-BB070MR02-YO 800x480 for ex707-HB-rocktouch 
+ *1.17			SS							17.01.2018  Added display code #66: DISPJST-005N001 800x480 for Jsmart05---Initial definition 
+ *1.18			SS							28.03.2018  Modified display code #64: modified pixel clock from 1 to 0 due to wrong datasheet info
+ *1.19			SS							09.07.2018  Added display code #67: FutureLabs FLC-101HML0000SA2 for ex710-hb
+
+ * NEXT AVAILABLE DISPLAY CODE: 68
  */
  
 #ifndef DISPLAYCONFIG_H
@@ -153,7 +184,7 @@ static struct t_DisplayParams displayconfig[] = {
         .bpp       = 16,
         
         .pclk_freq = 41000, 
-        .pclk_inv  = 0,
+        .pclk_inv  = 1,
         
         .hs_fp     = 16, 
         .hs_bp     = 149, 
@@ -205,7 +236,7 @@ static struct t_DisplayParams displayconfig[] = {
         .bpp       = 16,
         
         .pclk_freq = 36000, 
-        .pclk_inv  = 0,
+        .pclk_inv  = 1,
         
         .hs_fp     = 16, 
         .hs_bp     = 149, 
@@ -231,7 +262,7 @@ static struct t_DisplayParams displayconfig[] = {
         .bpp       = 16,
         
         .pclk_freq = 61000, 
-        .pclk_inv  = 0,
+        .pclk_inv  = 1,
         
         .hs_fp     = 16, 
         .hs_bp     = 149, 
@@ -387,7 +418,7 @@ static struct t_DisplayParams displayconfig[] = {
         .bpp       = 16,
         
         .pclk_freq = 72000, 
-        .pclk_inv  = 0,
+        .pclk_inv  = 1,
         
         .hs_fp     = 16, 
         .hs_bp     = 149, 
@@ -542,7 +573,7 @@ static struct t_DisplayParams displayconfig[] = {
         .rezy      = 272, 
         .bpp       = 16,
         
-        .pclk_freq = 9000, 
+        .pclk_freq = 12000, 
         .pclk_inv  = 0,
         
         .hs_fp     = 8, 
@@ -586,7 +617,345 @@ static struct t_DisplayParams displayconfig[] = {
         .pwmfreq        = 10000,
         .brightness_min = 1,
         .brightness_max = 100,
-    },       
+    },  
+    /* 55: Innolux G101ICE-L01 LVDS 24 bit 1280x800 IMX.6 ONLY */
+    {
+        .dispid    = 55,
+        .rezx      = 1280, 
+        .rezy      = 800, 
+        .bpp       = 24,
+        
+        .pclk_freq = 71100, 
+        .pclk_inv  = 1,				//27.03.2017 inverted clock polarity due to IMX.6 bug
+        
+        .hs_fp     = 30, 
+        .hs_bp     = 30, 
+        .hs_w      = 100, 
+        .hs_inv    = 0,
+        
+        .vs_fp     = 3, 
+        .vs_bp     = 10, 
+        .vs_w      = 10, 
+        .vs_inv    = 0,
+        
+        .blank_inv      = 0,
+        
+        .pwmfreq        = 200,
+        .brightness_min = 10,
+        .brightness_max = 100,
+    },              
+    /* 56: Innolux G156BGE-L01 LVDS 24 bit 1366x768 IMX.6 ONLY */
+    {
+        .dispid    = 56,
+        .rezx      = 1366, 
+        .rezy      = 768, 
+        .bpp       = 24,
+        
+        .pclk_freq = 76000, 
+        .pclk_inv  = 1,		     //27.03.2017 inverted clock polarity due to IMX.6 bug
+        
+        .hs_fp     = 47, 
+        .hs_bp     = 47, 
+        .hs_w      = 100, 
+        .hs_inv    = 0,
+        
+        .vs_fp     = 9, 
+        .vs_bp     = 9, 
+        .vs_w      = 20, 
+        .vs_inv    = 0,
+        
+        .blank_inv      = 0,
+        
+        .pwmfreq        = 200,
+        .brightness_min = 10,
+        .brightness_max = 100,
+    },              
+    /* 57: Innolux G215HVN01 DUAL LVDS 24 bit 1920x1080 IMX.6 ONLY*/
+    {
+        .dispid    = 57,
+        .rezx      = 1920, 
+        .rezy      = 1080, 
+        .bpp       = 24,
+        
+        .pclk_freq = 72000,  // DUAL LVDS dispaly: this is the freq. of one single channel
+        .pclk_inv  = 1,			 //27.03.2017 inverted clock polarity due to IMX.6 bug
+        
+        .hs_fp     = 40, 
+        .hs_bp     = 40, 
+        .hs_w      = 120, 
+        .hs_inv    = 0,
+        
+        .vs_fp     = 5, 
+        .vs_bp     = 5, 
+        .vs_w      = 30, 
+        .vs_inv    = 0,
+        
+        .blank_inv      = 0,
+        
+        .pwmfreq        = 250,
+        .brightness_min = 10,
+        .brightness_max = 100,
+    },              
+    /* 58: DataImage 7" LVDS 24 bit 800x480 */
+    {
+        .dispid    = 58,
+        .rezx      = 800, 
+        .rezy      = 480, 
+        .bpp       = 24,
+        
+        .pclk_freq = 33200,  
+        .pclk_inv  = 1,			//27.03.2017 inverted clock polarity due to IMX.6 bug
+        
+        .hs_fp     = 28, 
+        .hs_bp     = 28, 
+        .hs_w      = 200, 
+        .hs_inv    = 0,
+        
+        .vs_fp     = 10, 
+        .vs_bp     = 10, 
+        .vs_w      = 25, 
+        .vs_inv    = 0,
+        
+        .blank_inv      = 0,
+        
+        .pwmfreq        = 250,
+        .brightness_min = 20,
+        .brightness_max = 100,
+    }, 
+    /* 59: FutureLabs  FLT-070D07-W0 800x480 High Brightness*/
+    {
+        .dispid    = 59,
+        .rezx      = 800, 
+        .rezy      = 480, 
+        .bpp       = 16,
+        
+        .pclk_freq = 30000, 
+        .pclk_inv  = 1,	//20.04.2017 inverted clock polarity due to IMX.6 bug; for US01Ax TTL will drive the display lines on falling edge => LVDS driver needs to sample on rising edge
+        
+        .hs_fp     = 41, 
+        .hs_bp     = 35, 
+        .hs_w      = 129, 
+        .hs_inv    = 1,
+        
+        .vs_fp     = 12, 
+        .vs_bp     = 35, 
+        .vs_w      = 3, 
+        .vs_inv    = 1,
+        
+        .blank_inv      = 0,
+        
+        .pwmfreq        = 10000,  //20.04.2017 backlight driven by TPS61165
+        .brightness_min = 1,
+        .brightness_max = 100,
+    }, 
+    /* 60: CHIMEI TG070Y2-L01 800x480 for WE16 using both US01Ax and US03Ax*/
+    {
+        .dispid    = 60,
+        .rezx      = 800, 
+        .rezy      = 480, 
+        .bpp       = 16,
+        
+        .pclk_freq = 30000, 
+        .pclk_inv  = 1,	//20.04.2017 inverted clock polarity due to IMX.6 bug; for US01Ax TTL will drive the display lines on falling edge => LVDS driver needs to sample on rising edge
+        
+        .hs_fp     = 41, 
+        .hs_bp     = 35, 
+        .hs_w      = 129, 
+        .hs_inv    = 1,
+        
+        .vs_fp     = 12, 
+        .vs_bp     = 35, 
+        .vs_w      = 3, 
+        .vs_inv    = 1,
+        
+        .blank_inv      = 0,
+        
+        .pwmfreq        = 200,  
+        .brightness_min = 20,
+        .brightness_max = 100,
+    }, 
+    /* 61: FutureLabs Jsmart07 1024x600 IMX.6 ONLY*/
+    {
+        .dispid    = 61,
+        .rezx      = 1024, 
+        .rezy      = 600, 
+        .bpp       = 24,
+        
+        .pclk_freq = 51000, 
+        .pclk_inv  = 1,  // inverted clock polarity due to IMX.6 bug
+        
+        .hs_fp     = 10, 
+        .hs_bp     = 320, 
+        .hs_w      = 10, 
+        .hs_inv    = 1,
+        
+        .vs_fp     = 10, 
+        .vs_bp     = 35, 
+        .vs_w      = 10, 
+        .vs_inv    = 1,
+        
+        .blank_inv      = 0,
+        
+        .pwmfreq        = 10000,
+        .brightness_min = 10,
+        .brightness_max = 100,
+    },
+    /* 62: FutureLabs Jsmart10 LVDS 24 bit 1280x800 IMX.6 ONLY */
+    {
+        .dispid    = 62,
+        .rezx      = 1280, 
+        .rezy      = 800, 
+        .bpp       = 24,
+        
+        .pclk_freq = 71100, 
+        .pclk_inv  = 1,		// inverted clock polarity due to IMX.6 bug
+        
+        .hs_fp     = 30, 
+        .hs_bp     = 30, 
+        .hs_w      = 100, 
+        .hs_inv    = 0,
+        
+        .vs_fp     = 3, 
+        .vs_bp     = 10, 
+        .vs_w      = 10, 
+        .vs_inv    = 0,
+        
+        .blank_inv      = 0,
+        
+        .pwmfreq        = 10000,
+        .brightness_min = 10,
+        .brightness_max = 100,
+    },   
+    /* 63: FutureLabs FLT-1001Q2ETTXNH01 24 bit 1280x800 IMX.6 ONLY */
+    {
+        .dispid    = 63,
+        .rezx      = 1280, 
+        .rezy      = 800, 
+        .bpp       = 24,
+        
+        .pclk_freq = 71100, 
+        .pclk_inv  = 1,				//inverted clock polarity due to IMX.6 bug
+        
+        .hs_fp     = 30, 
+        .hs_bp     = 30, 
+        .hs_w      = 100, 
+        .hs_inv    = 0,
+        
+        .vs_fp     = 3, 
+        .vs_bp     = 10, 
+        .vs_w      = 10, 
+        .vs_inv    = 0,
+        
+        .blank_inv      = 0,
+        
+        .pwmfreq        = 200,
+        .brightness_min = 10,
+        .brightness_max = 80,
+    },  
+     /* 64: QITEX QX-050WVGA0TLT00D 800x480 */
+    {
+      .dispid    = 64,
+      .rezx      = 800, 
+      .rezy      = 480, 
+      .bpp       = 16,
+      
+      .pclk_freq = 27000, 
+      .pclk_inv  = 0,           //28.03.2018 inverted clock polarity due to datasheet error
+      
+      .hs_fp     = 40, 
+      .hs_bp     = 40, 
+      .hs_w      = 48, 
+      .hs_inv    = 1,
+      
+      .vs_fp     = 13, 
+      .vs_bp     = 29, 
+      .vs_w      = 3, 
+      .vs_inv    = 1,
+      
+      .blank_inv      = 0,
+      
+      .pwmfreq        = 10000,
+      .brightness_min = 1,
+      .brightness_max = 100,
+    }, 
+    /* 65: FutureLabs  FLT-BB070MR02-YO 800x480 ex707-High Brightness IMX.6 ONLY*/
+    {
+        .dispid    = 65,
+        .rezx      = 800, 
+        .rezy      = 480, 
+        .bpp       = 24,
+        
+        .pclk_freq = 29000, 
+        .pclk_inv  = 1,	//21.11.2017 inverted clock polarity due to IMX.6 bug; 
+        
+        .hs_fp     = 25, 
+        .hs_bp     = 25, 
+        .hs_w      = 78, 
+        .hs_inv    = 0,
+        
+        .vs_fp     = 5, 
+        .vs_bp     = 5, 
+        .vs_w      = 35, 
+        .vs_inv    = 0,
+        
+        .blank_inv      = 0,
+        
+        .pwmfreq        = 10000,  
+        .brightness_min = 10,
+        .brightness_max = 100,
+    },   
+    /* 66:DISPJST-005N001 800x480 for Jsmart05 */
+    {
+        .dispid    = 66,
+        .rezx      = 800, 
+        .rezy      = 480, 
+        .bpp       = 16,
+        
+        .pclk_freq = 30000, 
+        .pclk_inv  = 0,
+        
+        .hs_fp     = 210, 
+        .hs_bp     = 23, 
+        .hs_w      = 23, 
+        .hs_inv    = 1,
+        
+        .vs_fp     = 22, 
+        .vs_bp     = 11, 
+        .vs_w      = 12, 
+        .vs_inv    = 1,
+        
+        .blank_inv      = 0,
+        
+        .pwmfreq        = 10000,
+        .brightness_min = 10,
+        .brightness_max = 100,
+    },
+    /* 67: Innolux G101ICE-L01 LVDS 24 bit 1280x800 IMX.6 ONLY */
+    {
+        .dispid    = 67,
+        .rezx      = 1280,
+        .rezy      = 800,
+        .bpp       = 24,
+
+        .pclk_freq = 71100,
+        .pclk_inv  = 1,				//27.03.2017 inverted clock polarity due to IMX.6 bug
+
+        .hs_fp     = 30,
+        .hs_bp     = 30,
+        .hs_w      = 100,
+        .hs_inv    = 0,
+
+        .vs_fp     = 3,
+        .vs_bp     = 10,
+        .vs_w      = 10,
+        .vs_inv    = 0,
+
+        .blank_inv      = 0,
+
+        .pwmfreq        = 200,
+        .brightness_min = 10,
+        .brightness_max = 70,
+    },
     /* END OF LIST */
     {
       .dispid    = NODISPLAY,
