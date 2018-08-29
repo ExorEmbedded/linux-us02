@@ -505,6 +505,7 @@ dtb-$(CONFIG_ARCH_SOCFPGA) += \
 	socfpga_cyclone5_trcom.dtb \
 	socfpga_cyclone5_exor.dtb \
 	usom_us02kit.dtb \
+	usom_us05kit.dtb \
 	usom_etop6xx.dtb \
 	usom_scame.dtb \
 	usom_lju.dtb \
