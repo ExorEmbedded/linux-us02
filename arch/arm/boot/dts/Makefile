@@ -507,7 +507,6 @@ dtb-$(CONFIG_ARCH_SOCFPGA) += \
 	usom_us02kit.dtb \
 	usom_us05kit.dtb \
 	usom_etop6xx.dtb \
-	usom_scame.dtb \
 	usom_lju.dtb \
 	socfpga_vt.dtb
 dtb-$(CONFIG_ARCH_SPEAR13XX) += \
