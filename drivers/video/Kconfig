@@ -22,6 +22,7 @@ source "drivers/gpu/drm/Kconfig"
 
 menu "Frame buffer Devices"
 source "drivers/video/fbdev/Kconfig"
+source "drivers/video/ultievc/Kconfig"
 endmenu
 
 source "drivers/video/backlight/Kconfig"
