@@ -69,8 +69,6 @@
 		serial1 = &pluart1;
 		serial2 = &pluart2;
 		serial3 = &uart1;
-		ethernet0 = &gmac1;
-		ethernet1 = &gmac0;
 	};
 
 	regulator_3_3v: 3-3-v-regulator {
@@ -86,18 +84,13 @@
 		interrupt-parent = <&intc>;
 		interrupts = < 0 43 4 >;
 	}; //end ulti_sdc@0x100030000 (ulti_sdc_0)
-	
+
 	ultievcfb_0: ultievcfb@0xff200000 {
 	  compatible = "exor,ultievcfb";
 	  reg = <0xff200000 0x00000fff>;
 	  status = "okay";
 	};
 
-	ethernet@ff702000 {
-		phy-mode = "mii";
-		status = "okay";
-	};
-	
 	agpio0: gpio@0xff210010 {
 		compatible = "altr,pio-1.0";
 		reg = <0xff210010 0x10>;
@@ -108,9 +101,9 @@
 		gpio-controller;
 		#interrupt-cells = <1>;
 		interrupt-controller;
-	};	
+	};
 
-	leds { 
+	leds {
 		compatible = "gpio-leds";
 		status = "okay";
 
@@ -138,80 +131,6 @@
 	  compatible = "pwm-beeper";
 	  pwms = <&ultibuzz0 0 50000 0>;
 	};
-	
-	working_hours {
-	  compatible = "working_hours";
-	  eeprom = <&seeprom0>;
-	  rtcnvram = <&m41t83>;
-	  status = "okay";
-	};
-
-	plxx0: plugin0 {
-	  compatible = "exor,plxx_manager";
-	  eeprom = <&plxxseeprom>;
-	  ioexp = <&plxxioexp>;
-	  sel-gpio = <&porta 26 0>;
-	  index = <0>;
-	  status = "okay";
-	};
-
-	plxx1: plugin1 {
-	  compatible = "exor,plxx_manager";
-	  eeprom = <&plxxseeprom>;
-	  ioexp = <&plxxioexp>;
-	  sel-gpio = <&porta 18 0>;
-	  index = <1>;
-	  status = "okay";
-	};
-
-	plxx2: plugin2 {
-	  compatible = "exor,plxx_manager";
-	  eeprom = <&plxxseeprom>;
-	  ioexp = <&plxxioexp>;
-	  sel-gpio = <&porta 15 0>;
-	  index = <2>;
-	  status = "okay";
-	};
-
-	plxx3: plugin3 {
-	  compatible = "exor,plxx_manager";
-	  eeprom = <&plxxseeprom>;
-	  ioexp = <&plxxioexp>;
-	  sel-gpio = <&portc 7 0>;
-	  index = <3>;
-	  status = "okay";
-	};
-
-	pluart1: pluart@0xff200800 {
-		compatible = "altr,16550-FIFO128";
-		reg = <0xff220000 0x200>;
-		clock-frequency = <50000000>;
-		interrupt-parent = <&intc>;
-		interrupts = <0 40 4>;
-		reg-shift = <2>;
-		reg-io-width = <4>;
-		status = "okay";
-		mode-gpio = <&agpio0 12 0>;
-		rts-gpio = <&agpio0 13 0>;
-		rxen-gpio = <&agpio0 14 0>;
-		rs485-rts-active-high;
-	};
-
-	pluart2: pluart@0xff200a00 {
-		compatible = "altr,16550-FIFO128";
-		reg = <0xff220200 0x200>;
-		clock-frequency = <50000000>;
-		interrupt-parent = <&intc>;
-		interrupts = <0 41 4>;
-		reg-shift = <2>;
-		reg-io-width = <4>;
-		status = "okay";
-		mode-gpio = <&agpio0 15 0>;
-		rts-gpio = <&agpio0 16 0>;
-		rxen-gpio = <&agpio0 17 0>;
-		rs485-rts-active-high;
-	};
-	
 };
 
 &gpio0 {
@@ -244,16 +163,6 @@
 		compatible = "atmel,24c02";
 		reg = <0x56>;
 	};
-
-	plxxseeprom:seeprom1@57 {
-		compatible = "atmel,24c02";
-		reg = <0x57>;
-	};
-
-	plxxioexp:ioexp1@41 {
-		compatible = "atmel,24c02";
-		reg = <0x41>;
-	};
 	
 	m41t83:m41t83@68 {
 		compatible = "stm,m41t83";
@@ -261,6 +170,52 @@
 	};
 };
 
+&spi0 {
+	status = "okay";
+	num-cs = <4>;
+	bus-num = <0>;
+	cs-gpios = <&agpio0 3 0>, <&agpio0 4 0>, <&agpio0 5 0>, <&agpio0 6 0>;
+
+	spidev0: spi0@0 {
+		compatible = "spidev";
+		reg = <0>;
+		spi-max-frequency = <3000000>;
+	};
+
+	spidev1: spi0@1 {
+		compatible = "spidev";
+		reg = <1>;
+		spi-max-frequency = <3000000>;
+	};
+
+	fram: at25@2 {
+		compatible = "atmel,at25", "st,m95256";
+		reg = <2>;
+		spi-max-frequency = <20000000>;
+		pagesize = <64>;
+		size = <65536>;
+		address-width = <16>;
+	};
+};
+
+&spi1 {
+	status = "okay";
+	num-cs = <2>;
+	bus-num = <1>;
+	cs-gpios = <&agpio0 7 0>, <&agpio0 8 0>;
+
+	spidev2: spi1@0 {
+		compatible = "spidev";
+		reg = <0>;
+		spi-max-frequency = <3000000>;
+	};
+
+	spidev3: spi1@1 {
+		compatible = "spidev";
+		reg = <1>;
+		spi-max-frequency = <3000000>;
+	};
+};
 
 &qspi {
 	status = "okay";
