@@ -94,8 +94,6 @@
 		mmc0 = &ulti_sdc_0;
 		mmc1 = &emmc;
 		serial0 = &uart0;
-		serial1 = &pluart1;
-		serial2 = &pluart2;
 		serial3 = &uart1;
 	};
 
