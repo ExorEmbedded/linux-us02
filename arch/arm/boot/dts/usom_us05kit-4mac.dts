@@ -95,6 +95,10 @@
 		mmc1 = &emmc;
 		serial0 = &uart0;
 		serial3 = &uart1;
+		ethernet0 = &eth_tse_dma_0_eth_tse_0;
+		ethernet1 = &eth_tse_dma_1_eth_tse_0;
+		ethernet2 = &eth_tse_dma_2_eth_tse_0;
+		ethernet3 = &eth_tse_dma_3_eth_tse_0;
 	};
 
 	regulator_3_3v: 3-3-v-regulator {
@@ -222,7 +226,7 @@
 				tx-fifo-depth = <8192>;	/* embeddedsw.dts.params.tx-fifo-depth type NUMBER */
 				address-bits = <48>;
 				max-frame-size = <1518>;
-				local-mac-address = [00 00 00 00 00 00];
+				mac-address = [00 00 00 00 00 00];
 				altr,has-supplementary-unicast;
 				altr,enable-sup-addr = <1>;
 				altr,has-hash-multicast-filter;
@@ -287,7 +291,7 @@
 				tx-fifo-depth = <8192>;	/* embeddedsw.dts.params.tx-fifo-depth type NUMBER */
 				address-bits = <48>;
 				max-frame-size = <1518>;
-				local-mac-address = [00 00 00 00 00 00];
+				mac-address = [00 00 00 00 00 00];
 				altr,has-supplementary-unicast;
 				altr,enable-sup-addr = <1>;
 				altr,has-hash-multicast-filter;
@@ -316,7 +320,7 @@
 				tx-fifo-depth = <8192>;	/* embeddedsw.dts.params.tx-fifo-depth type NUMBER */
 				address-bits = <48>;
 				max-frame-size = <1518>;
-				local-mac-address = [00 00 00 00 00 00];
+				mac-address = [00 00 00 00 00 00];
 				altr,has-supplementary-unicast;
 				altr,enable-sup-addr = <1>;
 				altr,has-hash-multicast-filter;
@@ -345,7 +349,7 @@
 				tx-fifo-depth = <8192>;	/* embeddedsw.dts.params.tx-fifo-depth type NUMBER */
 				address-bits = <48>;
 				max-frame-size = <1518>;
-				local-mac-address = [00 00 00 00 00 00];
+				mac-address = [00 00 00 00 00 00];
 				altr,has-supplementary-unicast;
 				altr,enable-sup-addr = <1>;
 				altr,has-hash-multicast-filter;
