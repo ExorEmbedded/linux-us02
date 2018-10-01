@@ -99,6 +99,8 @@
 		ethernet1 = &eth_tse_dma_1_eth_tse_0;
 		ethernet2 = &eth_tse_dma_2_eth_tse_0;
 		ethernet3 = &eth_tse_dma_3_eth_tse_0;
+		spi0 = &spi0;
+		spi1 = &spi1;
 	};
 
 	regulator_3_3v: 3-3-v-regulator {

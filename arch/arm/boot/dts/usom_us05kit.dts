@@ -67,6 +67,8 @@
 		mmc1 = &emmc;
 		serial0 = &uart0;
 		serial3 = &uart1;
+		spi0 = &spi0;
+		spi1 = &spi1;
 	};
 
 	regulator_3_3v: 3-3-v-regulator {
