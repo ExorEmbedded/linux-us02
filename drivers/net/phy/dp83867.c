@@ -31,6 +31,10 @@
 #define DP83867_CTRL		0x1f
 #define DP83867_CFG3		0x1e
 
+#define DP83867_LEDCR1          0x0018
+#define DP83867_LEDCR2          0x0019
+#define DP83867_LEDCR3          0x001A
+
 /* Extended Registers */
 #define DP83867_CFG4            0x0031
 #define DP83867_RGMIICTL	0x0032
@@ -313,6 +317,11 @@ static int dp83867_config_init(struct phy_device *phydev)
 		val |= (dp83867->clk_output_sel << DP83867_IO_MUX_CFG_CLK_O_SEL_SHIFT);
 		phy_write_mmd(phydev, DP83867_DEVADDR, DP83867_IO_MUX_CFG, val);
 	}
+	
+	/* Configure LEDS */
+	phy_write(phydev, DP83867_LEDCR1 , 0x0b58); /* Set LEDs functionality */
+	phy_write(phydev, DP83867_LEDCR2 , 0x4444); /* Set actile hi polarity for leds */
+	phy_write(phydev, DP83867_LEDCR3 , 0x0001); /* Set blink rate */
 
 	return 0;
 }
