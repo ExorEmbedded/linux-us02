@@ -323,6 +323,9 @@ static int dp83867_config_init(struct phy_device *phydev)
 	phy_write(phydev, DP83867_LEDCR2 , 0x4444); /* Set actile hi polarity for leds */
 	phy_write(phydev, DP83867_LEDCR3 , 0x0001); /* Set blink rate */
 
+	/* Remove GBit feature */
+	phydev->supported &= ~ (SUPPORTED_1000baseT_Half | SUPPORTED_1000baseT_Full);
+
 	return 0;
 }
 

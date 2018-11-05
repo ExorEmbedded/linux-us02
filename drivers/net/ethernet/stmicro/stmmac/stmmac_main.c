@@ -1854,6 +1854,9 @@ static int stmmac_open(struct net_device *dev)
 	napi_enable(&priv->napi);
 	netif_start_queue(dev);
 
+	if (priv->phydev)
+		phy_attached_info(priv->phydev);
+
 	return 0;
 
 lpiirq_error:
@@ -3373,6 +3376,12 @@ int stmmac_dvr_probe(struct device *device,
 				 __func__, priv->plat->bus_id);
 			goto error_napi_register;
 		}
+	}
+
+	if(priv->plat->bus_id > 0)
+	{
+		snprintf(ndev->name, sizeof(ndev->name), "eth%d", priv->plat->bus_id );
+		pr_info(" priv->plat->bus_id: %d -- ndev->name: %s \n", priv->plat->bus_id, ndev->name);
 	}
 
 	ret = register_netdev(ndev);
