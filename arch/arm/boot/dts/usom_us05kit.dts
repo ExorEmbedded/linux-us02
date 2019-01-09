@@ -148,22 +148,33 @@
 &i2c0 {
 	status = "okay";
 	speed-mode = <0>;
+	clock-frequency = <100000>;
 
+	//HSE Seeprom
 	seeprom0:seeprom0@54 {
 		compatible = "atmel,24c02";
 		reg = <0x54>;
 	};
 
+	//uSom Seeprom first half
 	seeprom1:seeprom1@50 {
 		compatible = "atmel,24c02";
 		reg = <0x50>;
 	};
 
-	seeprom2:seeprom1@56 {
+	//uSom Seeprom second half
+	seeprom3:seeprom3@51 {
+		compatible = "at24,24c02";
+		reg = <0x51>;
+	};
+
+	//HDA Seeprom
+	seeprom2:seeprom2@56 {
 		compatible = "atmel,24c02";
 		reg = <0x56>;
 	};
 	
+	//RTC
 	m41t83:m41t83@68 {
 		compatible = "stm,m41t83";
 		reg = <0x68>;
