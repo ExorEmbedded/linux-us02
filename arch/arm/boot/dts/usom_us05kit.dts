@@ -20,6 +20,9 @@
 #include "socfpga.dtsi"
 
 / {
+	model = "Exor uS05 TSN Evk";
+	compatible = "altr,socfpga-cyclone5", "altr,socfpga";
+
 	soc {
 		clkmgr@ffd04000 {
 			clocks {
@@ -41,20 +44,6 @@
 			cpu1-start-addr = <0xffd080c4>;
 		};
 	};
-};
-
-&watchdog0 {
-	status = "okay";
-};
-
-
-/ {
-	model = "Exor uS05 TSN Evk";
-	compatible = "altr,socfpga-cyclone5", "altr,socfpga";
-
-	chosen {
-		bootargs = "console=ttyS0,57600 hw_dispid=45";
-	};
 
 	memory {
 		name = "memory";
@@ -69,6 +58,8 @@
 		serial3 = &uart1;
 		spi0 = &spi0;
 		spi1 = &spi1;
+		ethernet0 = &gmac1;
+		ethernet1 = &gmac0;
 	};
 
 	regulator_3_3v: 3-3-v-regulator {
@@ -128,9 +119,13 @@
 	};
 
 	beeper {
-	  compatible = "pwm-beeper";
-	  pwms = <&ultibuzz0 0 50000 0>;
+		compatible = "pwm-beeper";
+		pwms = <&ultibuzz0 0 50000 0>;
 	};
+};
+
+&watchdog0 {
+	status = "okay";
 };
 
 &gpio0 {
@@ -296,12 +291,8 @@
 &gmac1 {
 	phy-mode = "gmii";
 	status = "okay";
-	max-speed		= <1000>;
-
-	fixed-link {
-		speed = <100>;
-		full-duplex;
-	};
+	gmii-to-rgmii-adapter-address = <0xff210008>;
+	//phy-handle = <&phy1>;
 };
 
 /* Switch eth1 */
