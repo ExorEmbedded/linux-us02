@@ -99,6 +99,7 @@ struct dp83867_private {
 	int port_mirroring;
 	bool rxctrl_strap_quirk;
 	int clk_output_sel;
+	bool gigabit_disabled;
 };
 
 static int dp83867_ack_interrupt(struct phy_device *phydev)
@@ -202,6 +203,9 @@ static int dp83867_of_init(struct phy_device *phydev)
 
 	if (of_property_read_bool(of_node, "enet-phy-lane-no-swap"))
 		dp83867->port_mirroring = DP83867_PORT_MIRROING_DIS;
+
+	dp83867->gigabit_disabled = (of_property_read_bool(of_node, 
+				     "enet-phy-gigabit-disabled"));
 
 	return of_property_read_u32(of_node, "ti,fifo-depth",
 				   &dp83867->fifo_depth);
@@ -324,7 +328,8 @@ static int dp83867_config_init(struct phy_device *phydev)
 	phy_write(phydev, DP83867_LEDCR3 , 0x0001); /* Set blink rate */
 
 	/* Remove GBit feature */
-	phydev->supported &= ~ (SUPPORTED_1000baseT_Half | SUPPORTED_1000baseT_Full);
+	if(dp83867->gigabit_disabled)
+		phydev->supported &= ~ (SUPPORTED_1000baseT_Half | SUPPORTED_1000baseT_Full);
 
 	return 0;
 }
