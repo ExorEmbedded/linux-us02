@@ -1,0 +1,310 @@
+/*
+ * Copyright Exor International 2018. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/dts-v1/;
+/* First 4KB has trampoline code for secondary cores. */
+/memreserve/ 0x00000000 0x0001000;
+#include "socfpga.dtsi"
+
+/ {
+	model = "Exor uS05 TSN Evk";
+	compatible = "altr,socfpga-cyclone5", "altr,socfpga";
+
+	soc {
+		clkmgr@ffd04000 {
+			clocks {
+				osc1 {
+					clock-frequency = <25000000>;
+				};
+			};
+		};
+
+		emmc: dwmmc0@ff704000 {
+			num-slots = <1>;
+			broken-cd;
+			bus-width = <8>;
+			cap-mmc-highspeed;
+			cap-sd-highspeed;
+		};
+
+		sysmgr@ffd08000 {
+			cpu1-start-addr = <0xffd080c4>;
+		};
+	};
+
+	memory {
+		name = "memory";
+		device_type = "memory";
+		reg = <0x0 0x40000000>; /* 1GB */
+	};
+
+	aliases {
+		mmc0 = &ulti_sdc_0;
+		mmc1 = &emmc;
+		serial0 = &uart0;
+		serial3 = &uart1;
+		spi0 = &spi0;
+		spi1 = &spi1;
+		ethernet0 = &gmac1;
+		ethernet1 = &gmac0;
+	};
+
+	regulator_3_3v: 3-3-v-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "3.3V";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
+	ulti_sdc_0: ulti_sdc@0xFF230000 {
+		compatible = "EXOR,ulti_sdc-13.1", "EXOR,ulti_sdc-1.0", "exor,ulti_sdc-1.0", "sdhci-ultimmc";
+		reg = < 0xFF230000 0x0000ffff >;
+		interrupt-parent = <&intc>;
+		interrupts = < 0 43 4 >;
+	}; //end ulti_sdc@0x100030000 (ulti_sdc_0)
+
+	ultievcfb_0: ultievcfb@0xff200000 {
+	  compatible = "exor,ultievcfb";
+	  reg = <0xff200000 0x00000fff>;
+	  status = "okay";
+	};
+
+	agpio0: gpio@0xff210010 {
+		compatible = "altr,pio-1.0";
+		reg = <0xff210010 0x10>;
+		interrupts = <0 44 4>;
+		width=<32>;
+		altr,interrupt_type = < 4 >;
+		#gpio-cells = <2>;
+		gpio-controller;
+		#interrupt-cells = <1>;
+		interrupt-controller;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		status = "okay";
+
+		led@1 {
+			label = "us02:dl:usr0";
+			gpios = <&porta 16 0>;
+			default-state = "on";
+		};
+
+		led@2 {
+			label = "us02:fault:usr0";
+			gpios = <&porta 14 0>;
+			default-state = "off";
+		};
+	};
+
+	ultibuzz0: ultibuzz@0xff202000 {
+		compatible = "exor,ultibuzz";
+		reg = <0xff210020 0x20>;
+		ref-freq=<25600000>;
+		#pwm-cells = <3>;
+	};
+
+	beeper {
+		compatible = "pwm-beeper";
+		pwms = <&ultibuzz0 0 50000 0>;
+	};
+};
+
+&watchdog0 {
+	status = "okay";
+};
+
+&gpio0 {
+	status = "okay";
+};
+
+&gpio1 {
+	status = "okay";
+};
+
+&gpio2 {
+	status = "okay";
+};
+
+&i2c0 {
+	status = "okay";
+	speed-mode = <0>;
+	clock-frequency = <100000>;
+
+	//HSE Seeprom
+	seeprom0:seeprom0@54 {
+		compatible = "atmel,24c02";
+		reg = <0x54>;
+	};
+
+	//uSom Seeprom first half
+	seeprom1:seeprom1@50 {
+		compatible = "atmel,24c02";
+		reg = <0x50>;
+	};
+
+	//uSom Seeprom second half
+	seeprom3:seeprom3@51 {
+		compatible = "at24,24c02";
+		reg = <0x51>;
+	};
+
+	//HDA Seeprom
+	seeprom2:seeprom2@56 {
+		compatible = "atmel,24c02";
+		reg = <0x56>;
+	};
+	
+	//RTC
+	m41t83:m41t83@68 {
+		compatible = "stm,m41t83";
+		reg = <0x68>;
+	};
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <4>;
+	bus-num = <0>;
+	cs-gpios = <&agpio0 3 0>, <&agpio0 4 0>, <&agpio0 5 0>, <&agpio0 6 0>;
+
+	spidev0: spi0@0 {
+		compatible = "spidev";
+		reg = <0>;
+		spi-max-frequency = <3000000>;
+	};
+
+	spidev1: spi0@1 {
+		compatible = "spidev";
+		reg = <1>;
+		spi-max-frequency = <3000000>;
+	};
+
+	fram: at25@2 {
+		compatible = "atmel,at25", "st,m95256";
+		reg = <2>;
+		spi-max-frequency = <20000000>;
+		pagesize = <64>;
+		size = <65536>;
+		address-width = <16>;
+	};
+};
+
+&spi1 {
+	status = "okay";
+	num-cs = <2>;
+	bus-num = <1>;
+	cs-gpios = <&agpio0 7 0>, <&agpio0 8 0>;
+
+	spidev2: spi1@0 {
+		compatible = "spidev";
+		reg = <0>;
+		spi-max-frequency = <3000000>;
+	};
+
+	spidev3: spi1@1 {
+		compatible = "spidev";
+		reg = <1>;
+		spi-max-frequency = <3000000>;
+	};
+};
+
+&qspi {
+	status = "okay";
+	flash0: n25q256a@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "n25q256a";
+		reg = <0>;      /* chip select */
+		spi-max-frequency = <100000000>;
+		m25p,fast-read;
+		page-size = <256>; 
+		block-size = <16>; /* 2^16, 64KB */
+		read-delay = <4>;  /* delay value in read data capture register */
+		cdns,tshsl-ns = <50>;
+		cdns,tsd2d-ns = <50>;
+		cdns,tchsh-ns = <4>;
+		cdns,tslch-ns = <4>;
+
+		partition@qspi-fpga1 {
+		/* 10MB for raw FPGA1 image. */
+		label = "fpga1";
+		reg = <0x0 0xa00000>;
+		};
+
+		partition@qspi-fpga2 {
+		/* 10MB for raw FPGA2 image. */
+		label = "fpga2";
+		reg = <0xa00000 0xa00000>;
+		};
+	};
+};
+
+&uart0 {
+	status = "okay";
+	rs485-rts-active-high;
+};
+
+&usb1 {
+	status = "okay";
+};
+
+&can0 {
+  status = "okay";
+};
+
+&can1 {
+  status = "okay";
+};
+
+&emmc {
+	vmmc-supply = <&regulator_3_3v>;
+	vqmmc-supply = <&regulator_3_3v>;
+
+	num-slots = <1>;
+	supports-highspeed;
+	broken-cd;
+	altr,dw-mshc-ciu-div = <3>;
+	altr,dw-mshc-sdr-timing = <0 3>;
+
+	slot@0 {
+		reg = <0>;
+		bus-width = <8>;
+	};
+};
+
+/* Singola porta eth0 -- Port "22" */
+&gmac1 {
+	phy-mode = "gmii";
+	status = "okay";
+	gmii-to-rgmii-adapter-address = <0xff210008>;
+	//phy-handle = <&phy1>;
+};
+
+/* Switch eth1 */
+&gmac0 {
+	phy-mode = "gmii";
+	status = "disabled";
+	max-speed		= <1000>;
+
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
+};
+
+

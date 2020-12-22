@@ -786,6 +786,9 @@ dtb-$(CONFIG_ARCH_S5PV210) += \
 	s5pv210-smdkv210.dtb \
 	s5pv210-torbreck.dtb
 dtb-$(CONFIG_ARCH_SOCFPGA) += \
+	usom_us05kit.dtb \
+	usom_us05kit-4mac.dtb \
+	usom_us05ex707T.dtb \
 	socfpga_arria5_socdk.dtb \
 	socfpga_arria10_socdk_nand.dtb \
 	socfpga_arria10_socdk_qspi.dtb \
