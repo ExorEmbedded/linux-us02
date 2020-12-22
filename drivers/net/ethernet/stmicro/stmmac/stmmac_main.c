@@ -4350,6 +4350,12 @@ int stmmac_dvr_probe(struct device *device,
 		}
 	}
 
+	if(priv->plat->bus_id > 0)
+	{
+		snprintf(ndev->name, sizeof(ndev->name), "eth%d", priv->plat->bus_id );
+		pr_info(" priv->plat->bus_id: %d -- ndev->name: %s \n", priv->plat->bus_id, ndev->name);
+	}
+
 	ret = register_netdev(ndev);
 	if (ret) {
 		dev_err(priv->device, "%s: ERROR %i registering the device\n",

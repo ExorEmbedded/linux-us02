@@ -63,6 +63,7 @@ struct socfpga_dwmac {
 	struct reset_control *stmmac_rst;
 	struct reset_control *stmmac_ocp_rst;
 	void __iomem *splitter_base;
+	void __iomem *rgmii_adp_mem;
 	bool f2h_ptp_ref_clk;
 	struct tse_pcs pcs;
 };
@@ -218,6 +219,24 @@ static void socfpga_dwmac_fix_mac_speed(void *priv, unsigned int speed)
 		writel(val, splitter_base + EMAC_SPLITTER_CTRL_REG);
 	}
 
+	if (dwmac->rgmii_adp_mem) {
+		switch (speed) {
+		case 1000:
+			val = 0x01;
+			break;
+		case 100:
+			val = 0x03;
+			break;
+		case 10:
+			val = 0x02;
+			break;
+		default:
+			return;
+        }
+        dev_info(dev, "Change speed at %d adapter: %d\n", speed, val );
+        writel(val, dwmac->rgmii_adp_mem);
+    }
+
 	if (tse_pcs_base && sgmii_adapter_base)
 		tse_pcs_fix_mac_speed(&dwmac->pcs, phy_dev, speed);
 }
@@ -226,7 +245,7 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
 {
 	struct device_node *np = dev->of_node;
 	struct regmap *sys_mgr_base_addr;
-	u32 reg_offset, reg_shift;
+	u32 reg_offset, reg_shift, rgmii_adp_address;
 #if defined CONFIG_HAVE_ARM_SMCCC && defined CONFIG_ARCH_STRATIX10
 	u32 sysmgr_reg = 0;
 #endif
@@ -275,6 +294,15 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
 	if (ret) {
 		dev_info(dev, "Could not read reg_shift from sysmgr-syscon!\n");
 		return -EINVAL;
+	}
+
+	ret = of_property_read_u32_index(np, "gmii-to-rgmii-adapter-address", 0, &rgmii_adp_address);
+	if (ret)
+		dev_info(dev, "gmii-to-rgmii-adapter-address value not present!\n");
+	else
+	{
+		dev_info(dev, "rgmii_adp_address value: 0x%08X\n", rgmii_adp_address);
+		dwmac->rgmii_adp_mem = ioremap(rgmii_adp_address, SZ_8);
 	}
 
 	dwmac->f2h_ptp_ref_clk = of_property_read_bool(np, "altr,f2h_ptp_ref_clk");
