@@ -525,6 +525,12 @@ config ALTERA_ILC
 	help
 	  This enables the Interrupt Latency Counter driver for the Altera
 	  SOCFPGA platform.
+	  
+config WORKING_HOURS
+	tristate "working hours counters (non volatile)"
+	depends on EEPROM_AT24 && RTC_DRV_M41T80
+	help
+	    Say Y to add working hours counters in I2C EEPROM.
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
