@@ -31,6 +31,10 @@
 #define DP83867_CTRL		0x1f
 #define DP83867_CFG3		0x1e
 
+#define DP83867_LEDCR1          0x0018
+#define DP83867_LEDCR2          0x0019
+#define DP83867_LEDCR3          0x001A
+
 /* Extended Registers */
 #define DP83867_CFG4            0x0031
 #define DP83867_RGMIICTL	0x0032
@@ -75,6 +79,8 @@
 
 #define DP83867_IO_MUX_CFG_IO_IMPEDANCE_MAX	0x0
 #define DP83867_IO_MUX_CFG_IO_IMPEDANCE_MIN	0x1f
+#define DP83867_IO_MUX_CFG_CLK_O_SEL_MASK	(0x1f << 8)
+#define DP83867_IO_MUX_CFG_CLK_O_SEL_SHIFT	8
 
 /* CFG4 bits */
 #define DP83867_CFG4_PORT_MIRROR_EN              BIT(0)
@@ -92,6 +98,8 @@ struct dp83867_private {
 	int io_impedance;
 	int port_mirroring;
 	bool rxctrl_strap_quirk;
+	int clk_output_sel;
+	bool gigabit_disabled;
 };
 
 static int dp83867_ack_interrupt(struct phy_device *phydev)
@@ -160,6 +168,14 @@ static int dp83867_of_init(struct phy_device *phydev)
 	dp83867->io_impedance = -EINVAL;
 
 	/* Optional configuration */
+	ret = of_property_read_u32(of_node, "ti,clk-output-sel",
+				   &dp83867->clk_output_sel);
+	if (ret || dp83867->clk_output_sel > DP83867_CLK_O_SEL_REF_CLK)
+		/* Keep the default value if ti,clk-output-sel is not set
+		 * or too high
+		 */
+		dp83867->clk_output_sel = DP83867_CLK_O_SEL_REF_CLK;
+
 	if (of_property_read_bool(of_node, "ti,max-output-impedance"))
 		dp83867->io_impedance = DP83867_IO_MUX_CFG_IO_IMPEDANCE_MAX;
 	else if (of_property_read_bool(of_node, "ti,min-output-impedance"))
@@ -188,8 +204,13 @@ static int dp83867_of_init(struct phy_device *phydev)
 	if (of_property_read_bool(of_node, "enet-phy-lane-no-swap"))
 		dp83867->port_mirroring = DP83867_PORT_MIRROING_DIS;
 
-	return of_property_read_u32(of_node, "ti,fifo-depth",
-				   &dp83867->fifo_depth);
+	dp83867->gigabit_disabled = (of_property_read_bool(of_node,
+				     "enet-phy-gigabit-disabled"));
+
+	of_property_read_u32(of_node, "ti,fifo-depth",
+			     &dp83867->fifo_depth);
+	
+	return 0;
 }
 #else
 static int dp83867_of_init(struct phy_device *phydev)
@@ -295,6 +316,22 @@ static int dp83867_config_init(struct phy_device *phydev)
 	if (dp83867->port_mirroring != DP83867_PORT_MIRROING_KEEP)
 		dp83867_config_port_mirroring(phydev);
 
+	/* Clock output selection if muxing property is set */
+	if (dp83867->clk_output_sel != DP83867_CLK_O_SEL_REF_CLK) {
+		val = phy_read_mmd(phydev, DP83867_DEVADDR, DP83867_IO_MUX_CFG);
+		val &= ~DP83867_IO_MUX_CFG_CLK_O_SEL_MASK;
+		val |= (dp83867->clk_output_sel << DP83867_IO_MUX_CFG_CLK_O_SEL_SHIFT);
+		phy_write_mmd(phydev, DP83867_DEVADDR, DP83867_IO_MUX_CFG, val);
+	}
+	/* Configure LEDS */
+	phy_write(phydev, DP83867_LEDCR1 , 0x0b58); /* Set LEDs functionality */
+	phy_write(phydev, DP83867_LEDCR2 , 0x4444); /* Set actile hi polarity for leds */
+	phy_write(phydev, DP83867_LEDCR3 , 0x0001); /* Set blink rate */
+
+	/* Remove GBit feature */
+	if(dp83867->gigabit_disabled)
+		phydev->supported &= ~ (SUPPORTED_1000baseT_Half | SUPPORTED_1000baseT_Full);
+
 	return 0;
 }
 
@@ -309,6 +346,48 @@ static int dp83867_phy_reset(struct phy_device *phydev)
 	return dp83867_config_init(phydev);
 }
 
+static int dp83867_read_status(struct phy_device *phydev)
+{
+	// 0x11 = phy status register
+	unsigned short i_phy_status = phy_read(phydev, 0x11);
+
+	// bit 10 = link status
+	phydev->link = (i_phy_status & 0x0400) ? 1 : 0;
+
+	// bits 15 and 14 encode current speed
+	switch (i_phy_status & 0xC000)
+	{
+		// 10 == 1000 Mbs
+		case 0x8000:
+			phydev->speed = SPEED_1000;
+			break;
+
+		case 0x4000:
+			phydev->speed = SPEED_100;
+			break;
+
+		case 0x0000:
+			phydev->speed = SPEED_10;
+			break;
+
+		case 0xC000:
+		default:
+			// invalid speed
+			break;
+	}
+
+	// bit 13 encodes duplex
+	if (i_phy_status & 0x2000)
+		phydev->duplex = DUPLEX_FULL;
+	else
+		phydev->duplex = DUPLEX_HALF;
+
+	phydev->pause = 0;
+	phydev->asym_pause = 0;
+
+	return 0;
+}
+
 static struct phy_driver dp83867_driver[] = {
 	{
 		.phy_id		= DP83867_PHY_ID,
@@ -319,13 +398,14 @@ static struct phy_driver dp83867_driver[] = {
 
 		.config_init	= dp83867_config_init,
 		.soft_reset	= dp83867_phy_reset,
+		.config_aneg	= genphy_config_aneg,
+		.read_status	= dp83867_read_status,
+
 
 		/* IRQ related */
 		.ack_interrupt	= dp83867_ack_interrupt,
 		.config_intr	= dp83867_config_intr,
 
-		.config_aneg	= genphy_config_aneg,
-		.read_status	= genphy_read_status,
 		.suspend	= genphy_suspend,
 		.resume		= genphy_resume,
 	},
