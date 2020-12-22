@@ -1,0 +1,11 @@
+config FB_ULTIEVC
+	bool "ULTIEVC frame buffer support (EXPERIMENTAL)"
+	depends on FB
+	depends on ARCH_SOCFPGA
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	help
+          Frame buffer driver for SOCFPGA based boards, with ULTIEVC videocontroller core.
+
+
