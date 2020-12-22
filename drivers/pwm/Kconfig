@@ -519,4 +519,13 @@ config PWM_ZX
 	  To compile this driver as a module, choose M here: the module
 	  will be called pwm-zx.
 
+config PWM_ULTIBUZZ
+	tristate "ULTIBUZZ PWM support"
+	depends on ARCH_SOCFPGA
+	help
+	  Generic PWM framework driver for the UltiBuzz core.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called pwm-ultibuzz.
+
 endif
