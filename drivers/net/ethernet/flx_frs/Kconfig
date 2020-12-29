@@ -1,0 +1,10 @@
+#
+# Flexibilis FRS/FES device configuration
+#
+
+config FLX_FRS
+	tristate "Flexibilis FES/FRS eth switch"
+	default N
+	depends on HAS_IOMEM
+	---help---
+	  If you have a FES/FRS network switch IP core , say Y.
