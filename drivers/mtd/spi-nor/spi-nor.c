@@ -2689,6 +2689,41 @@ void spi_nor_restore(struct spi_nor *nor)
 }
 EXPORT_SYMBOL_GPL(spi_nor_restore);
 
+static int micron_set_dummy_cycles(struct spi_nor *nor, u8 dummy_cycles)
+{
+	int ret;
+	u8 val, mask;
+
+	/* Read the Volatile Configuration Register (VCR). */
+	ret = nor->read_reg(nor, SPINOR_OP_RD_VCR, &val, 1);
+	if (ret < 0)
+	{
+		dev_err(nor->dev, "error %d reading VCR\n", ret);
+		return ret;
+	}
+
+	write_enable(nor);
+
+	/* Update the number of dummy into the VCR. */
+	mask = GENMASK(7, 4);
+	val &= ~mask;
+	val |= (dummy_cycles << 4) & mask;
+
+	ret = nor->write_reg(nor, SPINOR_OP_WR_VCR, &val, 1);
+	if (ret < 0) {
+		dev_err(nor->dev, "error while writing VCR register\n");
+		return ret;
+	}
+
+	write_disable(nor);
+
+	ret = spi_nor_wait_till_ready(nor);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 int spi_nor_scan(struct spi_nor *nor, const char *name,
 		 const struct spi_nor_hwcaps *hwcaps)
 {
@@ -2827,6 +2862,11 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 	ret = spi_nor_setup(nor, info, &params, hwcaps);
 	if (ret)
 		return ret;
+	
+	/* Micron Flashes have default 15 read dummy cycles, so set this value to 8
+	*/
+	if (JEDEC_MFR(info) == CFI_MFR_ST)
+		micron_set_dummy_cycles(nor, 8);	
 
 	if (nor->addr_width) {
 		/* already configured from SFDP */
