@@ -113,18 +113,6 @@
 		};
 	};
 
-	ultibuzz0: ultibuzz@0xff202000 {
-		compatible = "exor,ultibuzz";
-		reg = <0xff210020 0x20>;
-		ref-freq=<25600000>;
-		#pwm-cells = <2>;
-	};
-
-	beeper {
-	  compatible = "pwm-beeper";
-	  pwms = <&ultibuzz0 0 50000 0>;
-	};
-	
 	working_hours {
 		compatible = "working_hours";
 		nvmem-names = "eeprom", "rtcnvram";
