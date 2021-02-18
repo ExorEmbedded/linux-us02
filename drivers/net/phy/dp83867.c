@@ -34,6 +34,7 @@
 #define DP83867_LEDCR1          0x0018
 #define DP83867_LEDCR2          0x0019
 #define DP83867_LEDCR3          0x001A
+#define DP83867_LEDCR1_DEFVAL   0x0b58
 
 /* Extended Registers */
 #define DP83867_CFG4            0x0031
@@ -100,6 +101,7 @@ struct dp83867_private {
 	bool rxctrl_strap_quirk;
 	int clk_output_sel;
 	bool gigabit_disabled;
+	u16 ledcr1;
 };
 
 static int dp83867_ack_interrupt(struct phy_device *phydev)
@@ -209,6 +211,12 @@ static int dp83867_of_init(struct phy_device *phydev)
 
 	of_property_read_u32(of_node, "ti,fifo-depth",
 			     &dp83867->fifo_depth);
+
+	/* ledcr1 register to specify the LEDs behaviour  */
+	if(of_property_read_u16(of_node, "ledcr1", &dp83867->ledcr1))
+	{
+		dp83867->ledcr1 = DP83867_LEDCR1_DEFVAL;
+	}
 	
 	return 0;
 }
@@ -324,9 +332,9 @@ static int dp83867_config_init(struct phy_device *phydev)
 		phy_write_mmd(phydev, DP83867_DEVADDR, DP83867_IO_MUX_CFG, val);
 	}
 	/* Configure LEDS */
-	phy_write(phydev, DP83867_LEDCR1 , 0x0b58); /* Set LEDs functionality */
-	phy_write(phydev, DP83867_LEDCR2 , 0x4444); /* Set actile hi polarity for leds */
-	phy_write(phydev, DP83867_LEDCR3 , 0x0001); /* Set blink rate */
+	phy_write(phydev, DP83867_LEDCR1 , dp83867->ledcr1); /* Set LEDs functionality */
+	phy_write(phydev, DP83867_LEDCR2 , 0x4444);          /* Set active hi polarity for leds */
+	phy_write(phydev, DP83867_LEDCR3 , 0x0001);          /* Set blink rate */
 
 	/* Remove GBit feature */
 	if(dp83867->gigabit_disabled)
