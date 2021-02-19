@@ -282,10 +282,6 @@
   status = "okay";
 };
 
-&can1 {
-  status = "okay";
-};
-
 &emmc {
 	vmmc-supply = <&regulator_3_3v>;
 	vqmmc-supply = <&regulator_3_3v>;
