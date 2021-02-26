@@ -26,6 +26,13 @@
 				osc1 {
 					clock-frequency = <25000000>;
 				};
+				
+				eth_tse_dma_0_clk_0: eth_tse_dma_0_clk_0 {
+					compatible = "fixed-clock";
+					#clock-cells = <0>;
+					clock-frequency = <50000000>;	/* 50.00 MHz */
+					clock-output-names = "eth_tse_dma_0_clk_0-clk";
+				}; //end eth_tse_dma_0_clk_0 (eth_tse_dma_0_clk_0)
 			};
 		};
 
@@ -59,8 +66,9 @@
 	};
 
 	aliases {
-		ethernet0 = &gmac0;
-		ethernet1 = &gmac1;
+		ethernet0 = &eth_tse_dma_0_eth_tse_0;
+		ethernet1 = &gmac0;
+		ethernet2 = &gmac1;
 		mmc0 = &ulti_sdc_0;
 		mmc1 = &emmc;
 		serial0 = &uart0;
@@ -128,11 +136,7 @@
 		interrupts = <0 40 4>;
 		reg-shift = <2>;
 		reg-io-width = <4>;
-		status = "disabled";
-		mode-gpio = <&agpio0 12 0>;
-		rts-gpio = <&agpio0 13 0>;
-		rxen-gpio = <&agpio0 14 0>;
-		rs485-rts-active-high;
+		status = "okay";
 	};
 
 	pluart2: pluart@0xff200a00 {
@@ -143,52 +147,78 @@
 		interrupts = <0 41 4>;
 		reg-shift = <2>;
 		reg-io-width = <4>;
-		status = "disabled";
-		mode-gpio = <&agpio0 15 0>;
-		rts-gpio = <&agpio0 16 0>;
-		rxen-gpio = <&agpio0 17 0>;
-		rs485-rts-active-high;
+		status = "okay";
 	};
+	
+	eth_tse_dma_0_eth_tse_0: ethernet@0xff200000 {
+		compatible = "altr,tse-msgdma-17.1", "altr,tse-msgdma-1.0", "altr,tse-1.0";
+		reg = <0xff200000 0x00000400>,
+		      <0xff200460 0x00000020>,
+		      <0xff200440 0x00000020>,
+		      <0xff200490 0x00000008>,
+		      <0xff200420 0x00000020>,
+		      <0xff200400 0x00000020>;
+		      reg-names = "control_port", "rx_csr", "rx_desc", "rx_resp", "tx_csr", "tx_desc";
+		      interrupt-parent = <&intc>;
+		      interrupts = <0 42 4 0 45 4>;
+		      interrupt-names = "rx_irq", "tx_irq";
+		      clocks = <&main_pll 0 &eth_tse_dma_0_clk_0 &eth_tse_dma_0_clk_0 &eth_tse_dma_0_clk_0>;
+		      clock-names = "control_port_clock_connection", "pcs_mac_tx_clock_connection", "receive_clock_connection", "transmit_clock_connection";
+		      ALTR,rx-fifo-depth = <2048>;	/* embeddedsw.dts.params.ALTR,rx-fifo-depth type NUMBER */
+		      ALTR,tx-fifo-depth = <2048>;	/* embeddedsw.dts.params.ALTR,tx-fifo-depth type NUMBER */
+		      rx-fifo-depth = <8192>;	/* embeddedsw.dts.params.rx-fifo-depth type NUMBER */
+		      tx-fifo-depth = <8192>;	/* embeddedsw.dts.params.tx-fifo-depth type NUMBER */
+		      address-bits = <48>;
+		      max-frame-size = <1518>;
+		      mac-address = [00 00 00 00 00 00];
+		      altr,has-supplementary-unicast;
+		      altr,enable-sup-addr = <1>;
+		      altr,has-hash-multicast-filter;
+		      altr,enable-hash = <1>;
+		      phy-connection-type = "rgmii-rxid";
+		      phy-handle = <&phy1>;
+
+		      eth_tse_dma_0_eth_tse_0_mdio: mdio {
+				compatible = "altr,tse-mdio";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				phy1: ethernet-phy@1 {
+					compatible = "ethernet-phy-ieee802.3-c22";
+					ti,rx-internal-delay = <4>;	// 1 ns
+					device_type = "ethernet-phy";
+					ledcr1 = /bits/ 16 <0xbbb>;
+					reg = <1>;
+				};
+				phy2: ethernet-phy@2 {
+					compatible = "ethernet-phy-ieee802.3-c22";
+					device_type = "ethernet-phy";
+					ledcr1 = /bits/ 16 <0xbbb>;
+					reg = <2>;
+				};
+				phy3: ethernet-phy@3 {
+					compatible = "ethernet-phy-ieee802.3-c22";
+					device_type = "ethernet-phy";
+					ledcr1 = /bits/ 16 <0xbbb>;
+					reg = <3>;
+				};
+			};
+		}; //end ethernet@0xff200000 (eth_tse_dma_0_eth_tse_0)	
 };
 
 /* This MAC is disabled in dtb by u-boot if necessary */
 &gmac0 {
 	phy-mode = "gmii";
-	gmii-to-rgmii-adapter-address = <0xff210008>;
+	gmii-to-rgmii-adapter-address = <0xff240000>;
 	phy-handle = <&phy1>;
 	status = "okay";
-	
-	mdio1 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "snps,dwmac-mdio";
-		phy1: ethernet-phy@1 {
-		  compatible = "ethernet-phy-ieee802.3-c22";
-		  device_type = "ethernet-phy";
-		  ledcr1 = /bits/ 16 <0xbbb>;
-		  reg = <1>;
-		};
-		phy2: ethernet-phy@2 {
-		  compatible = "ethernet-phy-ieee802.3-c22";
-		  device_type = "ethernet-phy";
-		  ledcr1 = /bits/ 16 <0xbbb>;
-		  reg = <2>;
-		};
-		phy3: ethernet-phy@3 {
-		  compatible = "ethernet-phy-ieee802.3-c22";
-		  device_type = "ethernet-phy";
-		  ledcr1 = /bits/ 16 <0xbbb>;
-		  reg = <3>;
-		};
-	};
 };
 
 /* This MAC is disabled in dtb by u-boot if necessary */
 &gmac1 {
 	phy-mode = "gmii";
-//	gmii-to-rgmii-adapter-address = <0xff210008>;
+	gmii-to-rgmii-adapter-address = <0xff240010>;
 	phy-handle = <&phy2>;
-	status = "disabled";
+	status = "okay";
 };
 
 &gpio0 {
