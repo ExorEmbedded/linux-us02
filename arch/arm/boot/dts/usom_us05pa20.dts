@@ -187,18 +187,21 @@
 					ti,rx-internal-delay = <4>;	// 1 ns
 					device_type = "ethernet-phy";
 					ledcr1 = /bits/ 16 <0xbbb>;
+					enet-phy-gigabit-disabled; //1Gbit speed mode temporary disabled 
 					reg = <1>;
 				};
 				phy2: ethernet-phy@2 {
 					compatible = "ethernet-phy-ieee802.3-c22";
 					device_type = "ethernet-phy";
 					ledcr1 = /bits/ 16 <0xbbb>;
+					enet-phy-gigabit-disabled; //1Gbit speed mode temporary disabled
 					reg = <2>;
 				};
 				phy3: ethernet-phy@3 {
 					compatible = "ethernet-phy-ieee802.3-c22";
 					device_type = "ethernet-phy";
 					ledcr1 = /bits/ 16 <0xbbb>;
+					enet-phy-gigabit-disabled; //1Gbit speed mode temporary disabled
 					reg = <3>;
 				};
 			};
@@ -209,7 +212,7 @@
 &gmac0 {
 	phy-mode = "gmii";
 	gmii-to-rgmii-adapter-address = <0xff240000>;
-	phy-handle = <&phy1>;
+	phy-handle = <&phy2>;
 	status = "okay";
 };
 
@@ -217,7 +220,7 @@
 &gmac1 {
 	phy-mode = "gmii";
 	gmii-to-rgmii-adapter-address = <0xff240010>;
-	phy-handle = <&phy2>;
+	phy-handle = <&phy3>;
 	status = "okay";
 };
 
