@@ -305,6 +305,10 @@
 
 &uart0 {
 	status = "okay";
+	rts-gpio = <&agpio0 13 0>;
+	mode-gpio = <&agpio0 12 0>;
+	rxen-gpio = <&agpio0 14 0>;
+	rs485-rts-active-high;
 };
 
 &usb1 {
