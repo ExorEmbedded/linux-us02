@@ -30,6 +30,14 @@
 #include <linux/ptp_clock_kernel.h>
 #include <linux/reset.h>
 
+#define HAVE_AG_RING
+//#define HAVE_AG_RING_IRQ_DEBUG
+//#define HAVE_GPIO_DEBUG
+
+#define STMMAC_TX_RING_SIZE			512 /* Must be power of two */
+#define STMMAC_TX_FRSIZE			2048
+#define AG_RING_QUEUE				0
+
 struct stmmac_resources {
 	void __iomem *addr;
 	const char *mac;
@@ -149,6 +157,30 @@ struct stmmac_priv {
 	unsigned long state;
 	struct workqueue_struct *wq;
 	struct work_struct service_task;
+
+#ifdef HAVE_AG_RING
+	struct u8* **rx_data;
+
+	struct {
+		bool inited;
+		atomic_t usage_counter;
+
+		unsigned int num_buffers;
+
+		u_char** tx_buffers;
+		u_int64_t tx_mem_size;
+		u_char* tx_curr_buffer;
+		unsigned int tx_len;
+		unsigned int tx_idx;
+
+		u_char** rx_buffers;
+		u_int64_t rx_mem_size;
+		u_char* rx_curr_buffer;
+		unsigned int rx_len;
+		unsigned int rx_idx;
+
+	} agring;
+#endif
 };
 
 enum stmmac_state {

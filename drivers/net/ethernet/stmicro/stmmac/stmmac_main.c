@@ -108,6 +108,30 @@ static unsigned int chain_mode;
 module_param(chain_mode, int, S_IRUGO);
 MODULE_PARM_DESC(chain_mode, "To use chain instead of ring mode");
 
+#ifdef HAVE_AG_RING
+
+#include <linux/vmalloc.h>
+#include <linux/init.h>
+#include <linux/miscdevice.h>
+
+static unsigned int enable_debug = 0;
+
+#define debug_on(debug_level) (unlikely(enable_debug >= debug_level))
+#define debug_printk(debug_level, fmt, ...) { if (debug_on(debug_level)) \
+  printk("[AGRING][DEBUG] %s:%d " fmt,  __FUNCTION__, __LINE__, ## __VA_ARGS__); }
+
+static unsigned int enable_agrings = 1;
+module_param(enable_agrings, uint, S_IRUGO | S_IWUSR | S_IWGRP);
+MODULE_PARM_DESC(enable_agrings, "enable or disable use of AG ring technology");
+
+static struct kmem_cache* agring_cache;
+static char* agring_tx_buffer;
+static int agring_instances = 0;
+static int stmmac_agring_rx(struct stmmac_priv *priv);
+static void stmmac_agring_tx_clean(struct stmmac_priv *priv);
+static void stmmac_agring_rx_refill(struct stmmac_priv *priv);
+#endif
+
 static irqreturn_t stmmac_interrupt(int irq, void *dev_id);
 
 #ifdef CONFIG_DEBUG_FS
@@ -2032,11 +2056,20 @@ static void stmmac_dma_interrupt(struct stmmac_priv *priv)
 
 		status = priv->hw->dma->dma_interrupt(priv->ioaddr,
 						      &priv->xstats, chan);
+
+#ifdef HAVE_AG_RING_IRQ_DEBUG
+		if (atomic_read(&priv->agring.usage_counter) && status)
+			debug_printk(7, "IRQ[%d] %04X\n", chan, status);
+#endif
+
 		if (likely((status & handle_rx)) || (status & handle_tx)) {
-			if (likely(napi_schedule_prep(&rx_q->napi))) {
-				stmmac_disable_dma_irq(priv, chan);
-				__napi_schedule(&rx_q->napi);
-			}
+#ifdef HAVE_AG_RING
+			if (atomic_read(&priv->agring.usage_counter) == 0)
+#endif
+				if (likely(napi_schedule_prep(&rx_q->napi))) {
+						stmmac_disable_dma_irq(priv, chan);
+						__napi_schedule(&rx_q->napi);
+					}
 		}
 
 		if (unlikely(status & tx_hard_error_bump_tc)) {
@@ -2239,6 +2272,783 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
 
 	return ret;
 }
+
+#ifdef HAVE_AG_RING
+
+#define SUCCESS   0
+
+static int stmmac_agring_ifindex(struct net_device* dev)
+{
+	const char* ifname = netdev_name(dev);
+  const char* ptr = ifname + strlen(ifname) - 1;
+  char* endp;
+	while ((ptr >= ifname) && (*ptr >= '0') && (*ptr <= '9'))
+		ptr --;
+
+  ptr ++;
+
+  return simple_strtoul(ptr, &endp, 10);
+}
+
+static netdev_tx_t stmmac_agring_tx(char* data, unsigned int datalen, struct net_device *dev)
+{
+	struct stmmac_priv *priv = netdev_priv(dev);
+	u32 queue = AG_RING_QUEUE;
+	int nfrags = 0;
+	int entry;
+	unsigned int first_entry;
+	struct dma_desc *desc, *first;
+	struct stmmac_tx_queue *tx_q;
+	unsigned int enh_desc;
+	unsigned int des;
+  bool last_segment;
+
+	tx_q = &priv->tx_queue[queue];
+
+	if (priv->tx_path_in_lpi_mode)
+		stmmac_disable_eee_mode(priv);
+
+	if (unlikely(stmmac_tx_avail(priv, queue) < nfrags + 1)) {
+		if (!netif_tx_queue_stopped(netdev_get_tx_queue(dev, queue))) {
+			netif_tx_stop_queue(netdev_get_tx_queue(priv->dev,
+								queue));
+			/* This is a hard error, log it. */
+			netdev_err(priv->dev,
+				   "%s: Tx Ring full when queue awake\n",
+				   __func__);
+		}
+		return NETDEV_TX_BUSY;
+	}
+
+	entry = tx_q->cur_tx;
+	first_entry = entry;
+
+	if (likely(priv->extend_desc))
+		desc = (struct dma_desc *)(tx_q->dma_etx + entry);
+	else
+		desc = tx_q->dma_tx + entry;
+
+	first = desc;
+
+	enh_desc = priv->plat->enh_desc;
+
+	/* We've used all descriptors we need for this skb, however,
+	 * advance cur_tx so that it references a fresh descriptor.
+	 * ndo_start_xmit will fill this descriptor the next time it's
+	 * called and stmmac_tx_clean may clean up to this descriptor.
+	 */
+	entry = STMMAC_GET_ENTRY(entry, DMA_TX_SIZE);
+	tx_q->cur_tx = entry;
+
+	if (netif_msg_pktdata(priv)) {
+		void *tx_head;
+
+		netdev_dbg(priv->dev,
+			   "%s: curr=%d dirty=%d f=%d, e=%d, first=%p, nfrags=%d",
+			   __func__, tx_q->cur_tx, tx_q->dirty_tx, first_entry,
+			   entry, first, nfrags);
+
+		if (priv->extend_desc)
+			tx_head = (void *)tx_q->dma_etx;
+		else
+			tx_head = (void *)tx_q->dma_tx;
+
+		priv->hw->desc->display_ring(tx_head, DMA_TX_SIZE, false);
+
+		netdev_dbg(priv->dev, ">>> frame to be transmitted: ");
+		print_pkt(data, datalen);
+	}
+
+	if (unlikely(stmmac_tx_avail(priv, queue) <= (MAX_SKB_FRAGS + 1))) {
+		netif_dbg(priv, hw, priv->dev, "%s: stop transmitted packets\n",
+			  __func__);
+		netif_tx_stop_queue(netdev_get_tx_queue(priv->dev, queue));
+	}
+
+	dev->stats.tx_bytes += datalen;
+
+	/* According to the coalesce parameter the IC bit for the latest
+	 * segment is reset and the timer re-started to clean the tx status.
+	 * This approach takes care about the fragments: desc is the first
+	 * element in case of no SG.
+	 */
+	priv->tx_count_frames += nfrags + 1;
+	if (likely(priv->tx_coal_frames > priv->tx_count_frames)) {
+		mod_timer(&priv->txtimer,
+			  STMMAC_COAL_TIMER(priv->tx_coal_timer));
+	} else {
+		priv->tx_count_frames = 0;
+		priv->hw->desc->set_tx_ic(desc);
+		priv->xstats.tx_set_ic_bit++;
+	}
+
+	last_segment = (nfrags == 0);
+
+	des = dma_map_single(priv->device, data,
+			     datalen, DMA_TO_DEVICE);
+	if (dma_mapping_error(priv->device, des))
+		goto dma_map_err;
+
+	tx_q->tx_skbuff_dma[first_entry].buf = des;
+	if (unlikely(priv->synopsys_id >= DWMAC_CORE_4_00))
+		first->des0 = cpu_to_le32(des);
+	else
+		first->des2 = cpu_to_le32(des);
+
+	tx_q->tx_skbuff_dma[first_entry].len = datalen;
+	tx_q->tx_skbuff_dma[first_entry].last_segment = last_segment;
+
+	/* Prepare the first descriptor setting the OWN bit too */
+	priv->hw->desc->prepare_tx_desc(first, 1, datalen,
+					0, priv->mode, 1,
+					last_segment, datalen);
+
+	/* The own bit must be the latest setting done when prepare the
+	 * descriptor and then barrier is needed to make sure that
+	 * all is coherent before granting the DMA engine.
+	 */
+	dma_wmb();
+
+	netdev_tx_sent_queue(netdev_get_tx_queue(dev, queue), datalen);
+
+	if (priv->synopsys_id < DWMAC_CORE_4_00)
+		priv->hw->dma->enable_dma_transmission(priv->ioaddr);
+	else {
+		tx_q->tx_tail_addr = tx_q->dma_tx_phy + (tx_q->cur_tx * sizeof(*desc));
+		priv->hw->dma->set_tx_tail_ptr(priv->ioaddr, tx_q->tx_tail_addr,
+					       queue);
+	}
+
+	return NETDEV_TX_OK;
+
+dma_map_err:
+	netdev_err(priv->dev, "Tx DMA map failed\n");
+	priv->dev->stats.tx_dropped++;
+	return NETDEV_TX_OK;
+}
+
+static void stmmac_agring_tx_clean(struct stmmac_priv *priv)
+{
+	struct stmmac_tx_queue *tx_q = &priv->tx_queue[AG_RING_QUEUE];
+	unsigned int bytes_compl = 0, pkts_compl = 0;
+	unsigned int entry;
+
+	netif_tx_lock(priv->dev);
+
+	priv->xstats.tx_clean++;
+
+	entry = tx_q->dirty_tx;
+	while (entry != tx_q->cur_tx) {
+		struct dma_desc *p;
+		int status;
+
+		if (priv->extend_desc)
+			p = (struct dma_desc *)(tx_q->dma_etx + entry);
+		else
+			p = tx_q->dma_tx + entry;
+
+		status = priv->hw->desc->tx_status(&priv->dev->stats,
+						      &priv->xstats, p,
+						      priv->ioaddr);
+		/* Check if the descriptor is owned by the DMA */
+		if (unlikely(status & tx_dma_own))
+			break;
+
+		/* Make sure descriptor fields are read after reading
+		 * the own bit.
+		 */
+		dma_rmb();
+
+		/* Just consider the last segment and ...*/
+		if (likely(!(status & tx_not_ls))) {
+			/* ... verify the status error condition */
+			if (unlikely(status & tx_err)) {
+				priv->dev->stats.tx_errors++;
+			} else {
+				priv->dev->stats.tx_packets++;
+				priv->xstats.tx_pkt_n++;
+			}
+		}
+
+		if (likely(tx_q->tx_skbuff_dma[entry].buf)) {
+			if (tx_q->tx_skbuff_dma[entry].map_as_page)
+				dma_unmap_page(priv->device,
+					       tx_q->tx_skbuff_dma[entry].buf,
+					       tx_q->tx_skbuff_dma[entry].len,
+					       DMA_TO_DEVICE);
+			else
+				dma_unmap_single(priv->device,
+						 tx_q->tx_skbuff_dma[entry].buf,
+						 tx_q->tx_skbuff_dma[entry].len,
+						 DMA_TO_DEVICE);
+			tx_q->tx_skbuff_dma[entry].buf = 0;
+			tx_q->tx_skbuff_dma[entry].len = 0;
+			tx_q->tx_skbuff_dma[entry].map_as_page = false;
+		}
+
+		if (priv->hw->mode->clean_desc3)
+			priv->hw->mode->clean_desc3(tx_q, p);
+
+		tx_q->tx_skbuff_dma[entry].last_segment = false;
+		tx_q->tx_skbuff_dma[entry].is_jumbo = false;
+
+		priv->hw->desc->release_tx_desc(p, priv->mode);
+
+		entry = STMMAC_GET_ENTRY(entry, DMA_TX_SIZE);
+	}
+	tx_q->dirty_tx = entry;
+
+	netdev_tx_completed_queue(netdev_get_tx_queue(priv->dev, AG_RING_QUEUE),
+				  pkts_compl, bytes_compl);
+
+	if (unlikely(netif_tx_queue_stopped(netdev_get_tx_queue(priv->dev, AG_RING_QUEUE))) &&
+	    stmmac_tx_avail(priv, AG_RING_QUEUE) > STMMAC_TX_THRESH) {
+
+		netif_dbg(priv, tx_done, priv->dev,
+			  "%s: restart transmit\n", __func__);
+		netif_tx_wake_queue(netdev_get_tx_queue(priv->dev, AG_RING_QUEUE));
+	}
+
+	if ((priv->eee_enabled) && (!priv->tx_path_in_lpi_mode)) {
+		stmmac_enable_eee_mode(priv);
+		mod_timer(&priv->eee_ctrl_timer, STMMAC_LPI_T(eee_timer));
+	}
+	netif_tx_unlock(priv->dev);
+}
+
+static int stmmac_agring_rx(struct stmmac_priv *priv)
+{
+	struct stmmac_rx_queue *rx_q = &priv->rx_queue[AG_RING_QUEUE];
+	unsigned int entry = rx_q->cur_rx;
+	int coe = priv->hw->rx_csum;
+	unsigned int next_entry;
+	unsigned int count = 0;
+
+	if (netif_msg_rx_status(priv)) {
+		void *rx_head;
+
+		netdev_dbg(priv->dev, "%s: descriptor ring:\n", __func__);
+		if (priv->extend_desc)
+			rx_head = (void *)rx_q->dma_erx;
+		else
+			rx_head = (void *)rx_q->dma_rx;
+
+		priv->hw->desc->display_ring(rx_head, DMA_RX_SIZE, true);
+	}
+	while (count < 10) {
+		int status;
+		struct dma_desc *p;
+		struct dma_desc *np;
+
+		if (priv->extend_desc)
+			p = (struct dma_desc *)(rx_q->dma_erx + entry);
+		else
+			p = rx_q->dma_rx + entry;
+
+		/* read the status of the incoming frame */
+		status = priv->hw->desc->rx_status(&priv->dev->stats,
+						   &priv->xstats, p);
+		/* check if managed by the DMA otherwise go ahead */
+		if (unlikely(status & dma_own))
+			break;
+
+		count++;
+
+		rx_q->cur_rx = STMMAC_GET_ENTRY(rx_q->cur_rx, DMA_RX_SIZE);
+		next_entry = rx_q->cur_rx;
+
+		if (priv->extend_desc)
+			np = (struct dma_desc *)(rx_q->dma_erx + next_entry);
+		else
+			np = rx_q->dma_rx + next_entry;
+
+		prefetch(np);
+
+		if ((priv->extend_desc) && (priv->hw->desc->rx_extended_status))
+			priv->hw->desc->rx_extended_status(&priv->dev->stats,
+							   &priv->xstats,
+							   rx_q->dma_erx +
+							   entry);
+		if (unlikely(status == discard_frame)) {
+			priv->dev->stats.rx_errors++;
+			if (priv->hwts_rx_en && !priv->extend_desc) {
+				/* DESC2 & DESC3 will be overwritten by device
+				 * with timestamp value, hence reinitialize
+				 * them in stmmac_rx_refill() function so that
+				 * device can reuse it.
+				 */
+				dma_unmap_single(priv->device,
+						 rx_q->rx_skbuff_dma[entry],
+						 priv->dma_buf_sz,
+						 DMA_FROM_DEVICE);
+			}
+		} else {
+			int frame_len;
+			unsigned int des;
+
+			if (unlikely(priv->synopsys_id >= DWMAC_CORE_4_00))
+				des = le32_to_cpu(p->des0);
+			else
+				des = le32_to_cpu(p->des2);
+
+			frame_len = priv->hw->desc->get_rx_frame_len(p, coe);
+
+			/*  If frame length is greater than skb buffer size
+			 *  (preallocated during init) then the packet is
+			 *  ignored
+			 */
+			if (frame_len > priv->dma_buf_sz) {
+				if (net_ratelimit())
+					netdev_err(priv->dev,
+						   "len %d larger than size (%d)\n",
+						   frame_len, priv->dma_buf_sz);
+				priv->dev->stats.rx_length_errors++;
+				break;
+			}
+
+			/* ACS is set; GMAC core strips PAD/FCS for IEEE 802.3
+			 * Type frames (LLC/LLC-SNAP)
+			 *
+			 * llc_snap is never checked in GMAC >= 4, so this ACS
+			 * feature is always disabled and packets need to be
+			 * stripped manually.
+			 */
+			if (unlikely(priv->synopsys_id >= DWMAC_CORE_4_00) ||
+			    unlikely(status != llc_snap))
+				frame_len -= ETH_FCS_LEN;
+
+			if (netif_msg_rx_status(priv)) {
+				netdev_dbg(priv->dev, "\tdesc: %p [entry %d] buff=0x%x\n",
+					   p, entry, des);
+				if (frame_len > ETH_FRAME_LEN)
+					netdev_dbg(priv->dev, "frame size %d, COE: %d\n",
+						   frame_len, status);
+			}
+
+			/* The zero-copy is always used for all the sizes
+			 * in case of GMAC4 because it needs
+			 * to refill the used descriptors, always.
+			 */
+			if (unlikely(!priv->plat->has_gmac4 &&
+				     (frame_len < priv->rx_copybreak))) {
+
+				dma_sync_single_for_cpu(priv->device,
+							rx_q->rx_skbuff_dma[entry], frame_len,
+							DMA_FROM_DEVICE);
+				memcpy(priv->agring.rx_curr_buffer, priv->rx_data[entry], frame_len);
+				priv->agring.rx_len = frame_len;
+
+				dma_sync_single_for_device(priv->device,
+							   rx_q->rx_skbuff_dma[entry], frame_len,
+							   DMA_FROM_DEVICE);
+			} else {
+				prefetch(priv->rx_data[entry]);
+
+				memcpy(priv->agring.rx_curr_buffer, priv->rx_data[entry], frame_len);
+				priv->agring.rx_len = frame_len;
+
+				dma_unmap_single(priv->device,
+						 rx_q->rx_skbuff_dma[entry],
+						 priv->dma_buf_sz,
+						 DMA_FROM_DEVICE);
+			}
+
+			if (netif_msg_pktdata(priv)) {
+				netdev_dbg(priv->dev, "frame received (%dbytes)",
+					   frame_len);
+				print_pkt(priv->agring.rx_curr_buffer, frame_len);
+			}
+
+			priv->dev->stats.rx_packets++;
+			priv->dev->stats.rx_bytes += frame_len;
+		}
+		entry = next_entry;
+	}
+
+	priv->xstats.rx_pkt_n += count;
+
+	return count;
+}
+
+static u_char *stmmac_agring_allocate_shared_memory(u_int64_t *mem_len)
+{
+	u_int64_t tot_mem = *mem_len;
+	u_char *shared_mem;
+
+	tot_mem = PAGE_ALIGN(tot_mem);
+
+	/* Alignment necessary on ARM platforms */
+	tot_mem += SHMLBA - (tot_mem % SHMLBA);
+
+	/* Memory is already zeroed */
+	shared_mem = vmalloc_user(tot_mem);
+
+	*mem_len = tot_mem;
+	return shared_mem;
+}
+
+static void stmmac_agring_allocate_buffers(struct stmmac_priv* priv, unsigned int num_buffers)
+{
+	int i;
+	u_int64_t mem_len;
+	struct stmmac_rx_queue *rx_q = &priv->rx_queue[AG_RING_QUEUE];
+
+	priv->agring.num_buffers = num_buffers;
+	priv->agring.tx_buffers = kzalloc(num_buffers * sizeof(u_char*), GFP_KERNEL);
+	priv->agring.rx_buffers = kzalloc(num_buffers * sizeof(u_char*), GFP_KERNEL);
+
+	priv->agring.tx_mem_size = PAGE_SIZE;
+	priv->agring.rx_mem_size = PAGE_SIZE;
+
+	priv->agring.tx_mem_size = PAGE_SIZE;
+	priv->agring.rx_mem_size = PAGE_SIZE;
+
+	debug_printk(7, "Allocating cache %llu\n", priv->agring.tx_mem_size);
+	agring_cache = kmem_cache_create("agring_cache", priv->agring.tx_mem_size, 0, SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+	if (!agring_cache)
+		debug_printk(0, "Unable to allocate cache");
+
+	agring_tx_buffer = kmem_cache_alloc(agring_cache, GFP_KERNEL);
+
+	for (i=0; i<num_buffers; i++)
+	{
+		mem_len = priv->agring.tx_mem_size;
+		priv->agring.tx_buffers[i] = stmmac_agring_allocate_shared_memory(&mem_len);
+
+		priv->agring.rx_buffers[i] = priv->agring.tx_buffers[i] + STMMAC_TX_FRSIZE;
+	}
+
+	priv->agring.tx_curr_buffer = priv->agring.tx_buffers[0];
+	priv->agring.rx_curr_buffer = priv->agring.rx_buffers[0];
+
+	priv->rx_data = kmalloc_array(DMA_RX_SIZE, sizeof(u8 *),
+					GFP_KERNEL);
+
+	for (i=0; i<DMA_RX_SIZE; i++)
+	{
+		struct dma_desc *p;
+
+		if (priv->extend_desc)
+			p = &((rx_q->dma_erx + i)->basic);
+		else
+			p = rx_q->dma_rx + i;
+
+		priv->rx_data[i] = kmem_cache_alloc(agring_cache, GFP_KERNEL);
+		rx_q->rx_skbuff_dma[i] = dma_map_single(priv->device, priv->rx_data[i],
+							priv->dma_buf_sz,
+							DMA_FROM_DEVICE);
+		if (dma_mapping_error(priv->device, rx_q->rx_skbuff_dma[i])) {
+			pr_err("%s: DMA mapping error\n", __func__);
+			kmem_cache_free(agring_cache, priv->rx_data[i]);
+			break;
+		}
+
+		p->des2 = rx_q->rx_skbuff_dma[i];
+
+		if ((priv->hw->mode->init_desc3) &&
+		    (priv->dma_buf_sz == BUF_SIZE_16KiB))
+			priv->hw->mode->init_desc3(p);
+	}
+}
+
+static void stmmac_agring_deallocate_buffers(struct stmmac_priv* priv)
+{
+	int i;
+	struct stmmac_rx_queue *rx_q = &priv->rx_queue[AG_RING_QUEUE];
+
+	for (i=0; i<priv->agring.num_buffers; i++)
+	{
+		if (priv->agring.tx_buffers[i] != NULL)
+		{
+			vfree(priv->agring.tx_buffers[i]);
+			priv->agring.tx_buffers[i] = NULL;
+		}
+	}
+
+	kfree(priv->agring.tx_buffers);
+	kfree(priv->agring.rx_buffers);
+
+	priv->agring.tx_curr_buffer = NULL;
+	priv->agring.rx_curr_buffer = NULL;
+
+	for (i=0; i<DMA_RX_SIZE; i++)
+	{
+		struct dma_desc *p;
+		if (priv->extend_desc)
+			p = &((rx_q->dma_erx + i)->basic);
+		else
+			p = rx_q->dma_rx + i;
+
+		dma_unmap_single(priv->device, rx_q->rx_skbuff_dma[i],
+				 priv->dma_buf_sz, DMA_FROM_DEVICE);
+		kfree(priv->rx_data[i]);
+	}
+
+	kfree(priv->rx_data);
+	priv->rx_data = NULL;
+}
+
+static int stmmac_agring_init_rx_buffers(struct stmmac_priv* priv)
+{
+	int i;
+	int ret;
+	u32 rx_count = priv->plat->rx_queues_to_use;
+	int queue;
+
+	for (queue=0; queue<rx_count; queue++)
+	{
+		struct stmmac_rx_queue *rx_q = &priv->rx_queue[queue];
+
+		for (i = 0; i < DMA_RX_SIZE; i++) {
+			struct dma_desc *p;
+			if (priv->extend_desc)
+				p = &((rx_q->dma_erx + i)->basic);
+			else
+				p = rx_q->dma_rx + i;
+
+			ret = stmmac_init_rx_buffers(priv, p, i, GFP_KERNEL, queue);
+			if (ret)
+				goto err_init_rx_buffers;
+
+			if (netif_msg_probe(priv))
+				pr_debug("[%p]\t[%p]\t[%x]\n", rx_q->rx_skbuff[i],
+					 rx_q->rx_skbuff[i]->data,
+					 (unsigned int)rx_q->rx_skbuff_dma[i]);
+		}
+	}
+
+	return 0;
+
+err_init_rx_buffers:
+	return -ENOMEM;
+}
+
+static int stmmac_agring_open(struct inode* node, struct file* f);
+static int stmmac_agring_close(struct inode* node, struct file* f);
+static long stmmac_agring_ioctl(struct file* f, unsigned int ioctl_num, unsigned long ioctl_param);
+static int stmmac_agring_mmap(struct file* f, struct vm_area_struct* vma);
+
+static const struct file_operations stmmac_agring_fops = {
+  .owner   = THIS_MODULE,
+  .read    = NULL,
+  .poll    = NULL,
+  .write   = NULL,
+  .unlocked_ioctl = stmmac_agring_ioctl,
+  .open    = stmmac_agring_open,
+  .release = stmmac_agring_close,
+  .fasync  = NULL,
+  .llseek  = NULL,
+  .mmap    = stmmac_agring_mmap
+};
+
+static struct miscdevice stmmac_agring_miscdev0 = {
+  .minor    = MISC_DYNAMIC_MINOR,
+  .name   = "fec_agr0",
+  .fops   = &stmmac_agring_fops
+};
+
+static struct miscdevice stmmac_agring_miscdev1 = {
+  .minor    = MISC_DYNAMIC_MINOR,
+  .name   = "fec_agr1",
+  .fops   = &stmmac_agring_fops
+};
+
+static struct miscdevice stmmac_agring_miscdev2 = {
+  .minor    = MISC_DYNAMIC_MINOR,
+  .name   = "fec_agr2",
+  .fops   = &stmmac_agring_fops
+};
+
+static struct miscdevice* stmmac_agring_miscdevs[] = {
+	&stmmac_agring_miscdev0,
+	&stmmac_agring_miscdev1,
+	&stmmac_agring_miscdev2
+};
+
+static int stmmac_agring_open(struct inode* node, struct file* f)
+{
+	return SUCCESS;
+}
+
+static int stmmac_agring_close(struct inode* node, struct file* f)
+{
+	return SUCCESS;
+}
+
+static inline void stmmac_agring_rx_refill(struct stmmac_priv *priv)
+{
+	struct stmmac_rx_queue *rx_q = &priv->rx_queue[0];
+	int dirty = stmmac_rx_dirty(priv, 0);
+	unsigned int entry = rx_q->dirty_rx;
+
+	int bfsize = priv->dma_buf_sz;
+
+	while (dirty-- > 0) {
+		struct dma_desc *p;
+
+		if (priv->extend_desc)
+			p = (struct dma_desc *)(rx_q->dma_erx + entry);
+		else
+			p = rx_q->dma_rx + entry;
+
+		rx_q->rx_skbuff_dma[entry] =
+		    dma_map_single(priv->device, priv->rx_data[entry], bfsize,
+				   DMA_FROM_DEVICE);
+		if (dma_mapping_error(priv->device,
+				      rx_q->rx_skbuff_dma[entry])) {
+			netdev_err(priv->dev, "Rx DMA map failed\n");
+			break;
+		}
+
+		if (unlikely(priv->synopsys_id >= DWMAC_CORE_4_00)) {
+			p->des0 = cpu_to_le32(rx_q->rx_skbuff_dma[entry]);
+			p->des1 = 0;
+		} else {
+			p->des2 = cpu_to_le32(rx_q->rx_skbuff_dma[entry]);
+		}
+		if (priv->hw->mode->refill_desc3)
+			priv->hw->mode->refill_desc3(rx_q, p);
+
+		if (rx_q->rx_zeroc_thresh > 0)
+			rx_q->rx_zeroc_thresh--;
+
+		netif_dbg(priv, rx_status, priv->dev,
+			  "refill entry #%d\n", entry);
+
+		dma_wmb();
+
+		if (unlikely(priv->synopsys_id >= DWMAC_CORE_4_00))
+			priv->hw->desc->init_rx_desc(p, priv->use_riwt, 0, 0);
+		else
+			priv->hw->desc->set_rx_owner(p);
+
+		dma_wmb();
+
+		entry = STMMAC_GET_ENTRY(entry, DMA_RX_SIZE);
+	}
+	rx_q->dirty_rx = entry;
+}
+
+static long stmmac_agring_ioctl(struct file* f, unsigned int ioctl_num, unsigned long ioctl_param)
+{
+	struct miscdevice* dev = (struct miscdevice*)f->private_data;
+	struct net_device *ndev = (struct net_device*)dev_get_drvdata(dev->this_device);
+	struct stmmac_priv* priv = netdev_priv(ndev);
+	unsigned int tx_idx;
+	unsigned int tx_len;
+	unsigned int rx_idx;
+	int rc = SUCCESS;
+
+	debug_printk(6, "ioctl_num: %04X, ioctl_param %lu\n", ioctl_num, ioctl_param);
+
+	/* Switch according to the ioctl called */
+	switch (ioctl_num)
+	{
+		case 0x7000: // transmit
+			priv->agring.tx_len = tx_len = (unsigned int)(ioctl_param & 0xFFFF);
+
+			ioctl_param = ioctl_param >> 16;
+			tx_idx = (unsigned int)(ioctl_param & 0xFF);
+
+			ioctl_param = ioctl_param >> 8;
+			rx_idx = (unsigned int)(ioctl_param & 0xFF);
+
+			priv->agring.tx_idx = tx_idx;
+			priv->agring.rx_idx = rx_idx;
+
+			priv->agring.tx_curr_buffer = priv->agring.tx_buffers[tx_idx];
+			priv->agring.rx_curr_buffer = priv->agring.rx_buffers[rx_idx];
+			priv->agring.rx_len = 0;
+
+			debug_printk(7, "transmit tx_len: %u, tx_idx: %u, rx_idx: %u, tx_buffer %p %p\n", tx_len, tx_idx, rx_idx, agring_tx_buffer, priv->agring.tx_curr_buffer);
+
+			memcpy(agring_tx_buffer, priv->agring.tx_curr_buffer, tx_len);
+
+			stmmac_agring_tx(agring_tx_buffer, tx_len, ndev);
+			break;
+		case 0x7001: // receive
+			stmmac_agring_rx(priv);
+			rc = priv->agring.rx_len;
+			if (rc)
+			{
+				debug_printk(7, "received %d bytes,\n", priv->agring.rx_len);
+
+				stmmac_agring_rx_refill(priv);
+				stmmac_agring_tx_clean(priv);
+
+				priv->agring.rx_len = 0;
+			}
+			break;
+		case 0x700A: // enable
+			if (atomic_read(&priv->agring.usage_counter) == 0)
+			{
+				atomic_inc(&priv->agring.usage_counter);
+
+				debug_printk(0, "enabling AGRING (num. buffers: %lu)\n", ioctl_param);
+
+				dma_free_rx_skbufs(priv, 0);
+				if (atomic_read(&priv->agring.usage_counter) == 1)
+					stmmac_agring_allocate_buffers(priv, ioctl_param);
+
+				// hack to prevent the dev_watchdog error
+				dev_deactivate(ndev);
+			}
+			else
+			{
+				debug_printk(0, "AGRING already in use\n");
+				rc = -ENOENT;
+			}
+
+			netdev_info(ndev, "Enabling promiscous mode %p %p %p %p\n", ndev, priv, priv->hw, priv->hw->mac);
+			ndev->flags |= IFF_PROMISC;
+			priv->hw->mac->set_filter(priv->hw, ndev);
+			break;
+		case 0x700B: // disable
+			if (atomic_read(&priv->agring.usage_counter) > 0)
+			{
+				atomic_dec(&priv->agring.usage_counter);
+
+				debug_printk(0, "disabling AGRING\n");
+
+				if (atomic_read(&priv->agring.usage_counter) == 0)
+					stmmac_agring_deallocate_buffers(priv);
+
+				stmmac_agring_init_rx_buffers(priv);
+
+				//dev_activate(ndev);
+			}
+			else
+			{
+				debug_printk(0, "AGRING is not in use\n");
+				rc = -ENOENT;
+			}
+			break;
+	}
+
+	debug_printk(6, "ioctl_num: exit %d\n", rc);
+	return rc;
+}
+
+static int stmmac_agring_mmap(struct file* f, struct vm_area_struct* vma)
+{
+	struct miscdevice* dev = (struct miscdevice*)f->private_data;
+	struct net_device *ndev = (struct net_device*)dev_get_drvdata(dev->this_device);
+	struct stmmac_priv* priv = netdev_priv(ndev);
+	unsigned long mem_id = vma->vm_pgoff; /* using vm_pgoff as memory id */
+	int rc = -ENODEV;
+
+	debug_printk(6, "called, mem_id: %lu\n", mem_id);
+
+	if (mem_id < priv->agring.num_buffers)
+		rc = remap_vmalloc_range(vma, priv->agring.tx_buffers[mem_id], 0);
+	else
+		rc = -ENOENT;
+
+	debug_printk(7, "return: %d\n", rc);
+
+	return rc;
+}
+#endif
 
 /**
  * stmmac_tx_timer - mitigation sw timer for tx.
@@ -2562,6 +3372,37 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
 		for (chan = 0; chan < tx_cnt; chan++)
 			priv->hw->dma->enable_tso(priv->ioaddr, 1, chan);
 	}
+
+#ifdef HAVE_AG_RING
+	netdev_info(dev, "AGRING is %s enabled, %s inited, instance %d\n", enable_agrings? "" : "NOT", priv->agring.inited? "" : "NOT", agring_instances);
+
+	if (enable_agrings && (!priv->agring.inited) && (agring_instances < 2))
+	{
+		struct miscdevice* miscdev;
+		const char* ifname = netdev_name(dev);
+	  int index = stmmac_agring_ifindex(dev);
+	  if (index > 2)
+			return -EINVAL;
+
+		miscdev = stmmac_agring_miscdevs[index];
+		agring_instances++;
+
+	  netdev_info(dev, "interface name is %s, index is %d\n", ifname, index);
+
+		ret = misc_register(miscdev);
+		priv->agring.inited = (ret == 0);
+
+		if (!ret)
+		{
+			dev_set_drvdata(miscdev->this_device, dev);
+			netdev_info(dev, "AGRING device registered successfully\n");
+		}
+		else
+		{
+			netdev_err(dev, "failed to register AGRING device (ret: %d)\n", ret);
+		}
+	}
+#endif
 
 	/* Start the ball rolling... */
 	stmmac_start_all_dma(priv);
@@ -3016,6 +3857,14 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct stmmac_tx_queue *tx_q;
 	unsigned int enh_desc;
 	unsigned int des;
+
+#ifdef HAVE_AG_RING
+	if (atomic_read(&priv->agring.usage_counter))
+	{
+		// if someone tries to send packets while AGRING is active, returns immediately
+		return NETDEV_TX_OK;
+	}
+#endif
 
 	tx_q = &priv->tx_queue[queue];
 
