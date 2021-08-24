@@ -790,6 +790,7 @@ dtb-$(CONFIG_ARCH_SOCFPGA) += \
 	usom_us05kit-4mac.dtb \
 	usom_us05ex707T.dtb \
 	usom_us05pa20.dtb \
+	usom_etop6xx.dtb \
 	socfpga_arria5_socdk.dtb \
 	socfpga_arria10_socdk_nand.dtb \
 	socfpga_arria10_socdk_qspi.dtb \
